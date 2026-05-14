@@ -1,0 +1,15 @@
+databaseChangeLog:
+  - changeSet:
+      id: 004-widen-currency-columns
+      author: limidus
+
+      changes:
+        - modifyDataType:
+            tableName: exchange_rates
+            columnName: currency
+            newDataType: varchar(255)
+
+        - modifyDataType:
+            tableName: conversion_records
+            columnName: currency
+            newDataType: varchar(255)

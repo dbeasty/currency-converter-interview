@@ -1,0 +1,42 @@
+databaseChangeLog:
+  - changeSet:
+      id: 003-create-exchange-rates
+      author: you
+
+      changes:
+        - createTable:
+            tableName: exchange_rates
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+
+              - column:
+                  name: currency
+                  type: varchar(3)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: rate
+                  type: decimal(19,6)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: effective_date
+                  type: date
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: source_timestamp
+                  type: timestamp
+
+        - addUniqueConstraint:
+            tableName: exchange_rates
+            columnNames: currency, effective_date
+            constraintName: uq_currency_date

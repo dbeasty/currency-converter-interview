@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: currency-converter
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driverClassName: org.h2.Driver
+    username: sa
+    password: password
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: validate
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+
+app:
+  treasury:
+    base-url: https://api.fiscaldata.treasury.gov/services/api/fiscal_service

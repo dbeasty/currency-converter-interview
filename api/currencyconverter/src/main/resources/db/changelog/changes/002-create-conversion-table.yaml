@@ -1,0 +1,51 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-create-conversions
+      author: you
+
+      changes:
+        - createTable:
+            tableName: conversion_records
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+
+              - column:
+                  name: transaction_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: currency
+                  type: varchar(3)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: exchange_rate_used
+                  type: decimal(19,6)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: converted_amount
+                  type: decimal(19,2)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: conversion_timestamp
+                  type: timestamp
+                  defaultValueComputed: CURRENT_TIMESTAMP
+
+        - addForeignKeyConstraint:
+            baseTableName: conversion_records
+            baseColumnNames: transaction_id
+            referencedTableName: transactions
+            referencedColumnNames: id
+            constraintName: fk_conversion_transaction
