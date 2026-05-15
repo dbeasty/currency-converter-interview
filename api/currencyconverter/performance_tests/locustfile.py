@@ -44,6 +44,10 @@ from datetime import date, timedelta
 
 from locust import HttpUser, between, events, tag, task
 
+# ── Auth ──────────────────────────────────────────────────────────────────────
+PERF_CLIENT_ID     = os.environ.get("PERF_CLIENT_ID",     "default-client")
+PERF_CLIENT_SECRET = os.environ.get("PERF_CLIENT_SECRET", "change-me-secret")
+
 # ── Constants ────────────────────────────────────────────────────────────────
 
 # Currencies sampled from the Treasury Reporting Rates dataset.
@@ -147,9 +151,29 @@ def _convert_transaction(client: HttpUser, tx_id: str, currency: str) -> None:
 _THINK_TIME = between(0.1, 0.5)
 
 
+# ── Base user with JWT auth ───────────────────────────────────────────────────
+
+class AuthenticatedUser(HttpUser):
+    """Base class that obtains a JWT on start-up and attaches it to all requests."""
+
+    abstract = True
+
+    def on_start(self) -> None:
+        resp = self.client.post(
+            "/auth/token",
+            json={"clientId": PERF_CLIENT_ID, "clientSecret": PERF_CLIENT_SECRET},
+            name="POST /auth/token",
+        )
+        if resp.status_code == 200:
+            token = resp.json().get("accessToken", "")
+            self.client.headers.update({"Authorization": f"Bearer {token}"})
+        else:
+            raise RuntimeError(f"Auth failed: {resp.status_code} {resp.text}")
+
+
 # ── User classes ─────────────────────────────────────────────────────────────
 
-class StoreOnlyUser(HttpUser):
+class StoreOnlyUser(AuthenticatedUser):
     """Writes new transactions as fast as possible. No reads."""
 
     wait_time = _THINK_TIME
@@ -165,7 +189,7 @@ class StoreOnlyUser(HttpUser):
                 _tx_pool.append((tx_id, tx_date))
 
 
-class ReadOnlyUser(HttpUser):
+class ReadOnlyUser(AuthenticatedUser):
     """Converts pre-existing transactions. Seeds one transaction on start-up."""
 
     wait_time = _THINK_TIME
@@ -174,6 +198,7 @@ class ReadOnlyUser(HttpUser):
     _seeded_tx: tuple[str, str] | None = None
 
     def on_start(self) -> None:
+        super().on_start()
         result = _create_transaction(self)
         if result:
             self._seeded_tx = result
@@ -198,7 +223,7 @@ class ReadOnlyUser(HttpUser):
         _convert_transaction(self, tx_id, _random_currency())
 
 
-class MixedUser(HttpUser):
+class MixedUser(AuthenticatedUser):
     """
     Default user: 80 % reads (convert), 20 % writes (create).
 
@@ -209,7 +234,8 @@ class MixedUser(HttpUser):
     weight = 1
 
     def on_start(self) -> None:
-        """Seed the shared pool with one transaction so reads work immediately."""
+        """Obtain JWT then seed the shared pool with one transaction."""
+        super().on_start()
         result = _create_transaction(self)
         if result:
             with _tx_pool_lock:
