@@ -149,7 +149,7 @@ cp .env.example .env   # if needed
 docker compose up --build
 ```
 
-Copy [`.env.example`](../../.env.example) for `POSTGRES_*` and `VAULT_TOKEN`. The `vault-init` service writes `secret/currency-converter`; the API loads datasource and `app.security.*` from Vault.
+Copy [`.env.example`](../../.env.example) for `VAULT_TOKEN`. The `vault-init` service seeds `secret/currency-converter` (Postgres defaults in `scripts/vault-init.sh`); the API loads datasource and `app.security.*` from Vault.
 
 See [docs/docker.md](../../docs/docker.md) for details.
 

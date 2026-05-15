@@ -17,7 +17,6 @@ services:
 
   vault-init:
     image: hashicorp/vault:1.18
-    env_file: .env
     environment:
       VAULT_ADDR: http://vault:8200
       VAULT_TOKEN: ${VAULT_TOKEN:-dev-root-token}
@@ -44,8 +43,8 @@ services:
       vault-init:
         condition: service_completed_successfully
     healthcheck:
-      # Values from .env (same as vault-init seed); container runtime creds come from Vault REST.
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      # Must match vault-init.sh dev defaults (runtime creds come from Vault REST).
+      test: ["CMD-SHELL", "pg_isready -U ccuser -d currencyconverter"]
       interval: 10s
       timeout: 5s
       retries: 5

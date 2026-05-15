@@ -55,13 +55,10 @@ If you prefer to run commands yourself, build the JAR first — see [Building](j
 Copy [`.env.example`](../.env.example) to `.env` at the repo root (git-ignored):
 
 ```
-POSTGRES_DB=currencyconverter
-POSTGRES_USER=ccuser
-POSTGRES_PASSWORD=changeme
 VAULT_TOKEN=dev-root-token
 ```
 
-`POSTGRES_*` values are copied into Vault by **`vault-init`** (bootstrap only). The **`db`** and **`api`** containers read database credentials from Vault (`db` via curl + Vault KV REST in [`scripts/postgres-entrypoint.sh`](../scripts/postgres-entrypoint.sh); `api` via Spring Cloud Vault).
+For the full stack, **`.env` only needs `VAULT_TOKEN`**. Postgres credentials live in Vault: **`vault-init`** seeds them (defaults in [`scripts/vault-init.sh`](../scripts/vault-init.sh): `currencyconverter` / `ccuser` / `changeme`). Override with optional `POSTGRES_*` in `.env` or the shell when seeding. The **`db`** and **`api`** containers read credentials from Vault at runtime (`db` via curl + KV REST; `api` via Spring Cloud Vault).
 
 **2. Start the stack**
 
@@ -94,7 +91,7 @@ Example token request (matches seeded client credentials):
 
 | Variable | Used by | Purpose |
 |----------|---------|---------|
-| `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | `vault-init` | Seed Vault KV (not passed directly to `db` in full stack) |
+| `POSTGRES_*` (optional) | `vault-init`, `docker-compose.db.yml` | Override dev defaults when seeding Vault or running `--db-only` |
 | `VAULT_TOKEN` | `vault`, `vault-init`, `db`, `api` | Dev root token (`VAULT_DEV_ROOT_TOKEN_ID`) |
 
 ### HashiCorp Vault (Docker stack)

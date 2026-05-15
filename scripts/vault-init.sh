@@ -3,9 +3,11 @@ set -eu
 
 : "${VAULT_ADDR:?VAULT_ADDR is required}"
 : "${VAULT_TOKEN:?VAULT_TOKEN is required}"
-: "${POSTGRES_DB:?POSTGRES_DB is required}"
-: "${POSTGRES_USER:?POSTGRES_USER is required}"
-: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
+
+# Dev defaults (override via env when seeding Vault, e.g. for db-only or custom stacks).
+POSTGRES_DB="${POSTGRES_DB:-currencyconverter}"
+POSTGRES_USER="${POSTGRES_USER:-ccuser}"
+POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-changeme}"
 
 JWT_SECRET="${APP_SECURITY_JWT_SECRET:-change-me-in-production-must-be-at-least-32-chars!!}"
 
