@@ -7,7 +7,7 @@ The core stack is orchestrated by Docker Compose: **Vault** (secrets), **Postgre
 | `vault` | `hashicorp/vault:1.18` (dev mode) | 8200 |
 | `vault-init` | `hashicorp/vault:1.18` (one-shot seed) | — |
 | `api` | Built from `api/currencyconverter/Dockerfile` | 8080 |
-| `db` | `postgres:17-alpine` | 5432 |
+| `db` | Built from `docker/Dockerfile.postgres` (Vault REST → `POSTGRES_*`) | 5432 |
 | `tests` | `api/currencyconverter/Dockerfile.tests` | (host ports only when published, e.g. Locust 8089) |
 
 **Startup order:** `vault` → `vault-init` (seeds KV) → `db` (healthy) → `api` (reads secrets from Vault with profile `release`).
@@ -61,7 +61,7 @@ POSTGRES_PASSWORD=changeme
 VAULT_TOKEN=dev-root-token
 ```
 
-`POSTGRES_*` values are used by the **`db`** container and copied into Vault by **`vault-init`**. The **`api`** container does not read database credentials from `.env` directly; it loads them from Vault via Spring Cloud Vault.
+`POSTGRES_*` values are copied into Vault by **`vault-init`** (bootstrap only). The **`db`** and **`api`** containers read database credentials from Vault (`db` via curl + Vault KV REST in [`scripts/postgres-entrypoint.sh`](../scripts/postgres-entrypoint.sh); `api` via Spring Cloud Vault).
 
 **2. Start the stack**
 
@@ -94,8 +94,8 @@ Example token request (matches seeded client credentials):
 
 | Variable | Used by | Purpose |
 |----------|---------|---------|
-| `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | `db`, `vault-init` | PostgreSQL bootstrap and Vault KV seed |
-| `VAULT_TOKEN` | `vault`, `vault-init`, `api` | Dev root token (`VAULT_DEV_ROOT_TOKEN_ID`) |
+| `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | `vault-init` | Seed Vault KV (not passed directly to `db` in full stack) |
+| `VAULT_TOKEN` | `vault`, `vault-init`, `db`, `api` | Dev root token (`VAULT_DEV_ROOT_TOKEN_ID`) |
 
 ### HashiCorp Vault (Docker stack)
 
@@ -143,9 +143,11 @@ vault kv get secret/currency-converter
 
 ### `db`
 
-- `postgres:17-alpine` with a named volume (`postgres_data`) for persistence
-- Health check: `pg_isready` polled every 10 s — `api` will not start until this passes
+- Custom image on `postgres:17-alpine` with `curl` + `jq`; entrypoint reads `secret/currency-converter` from Vault before starting Postgres
+- Depends on `vault-init`; uses runtime `POSTGRES_USER` / `POSTGRES_DB` in health check
+- Named volume (`postgres_data`) for persistence
 - Port `5432` is exposed to the host in both Compose files
+- **`docker-compose.db.yml`** still uses plain Postgres + `.env` (no Vault) for `--db-only`
 
 ### `tests`
 

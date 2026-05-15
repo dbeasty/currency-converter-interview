@@ -30,17 +30,21 @@ services:
     restart: "no"
 
   db:
-    image: postgres:17-alpine
-    env_file: .env
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.postgres
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: ${VAULT_TOKEN:-dev-root-token}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    depends_on:
+      vault-init:
+        condition: service_completed_successfully
     healthcheck:
+      # Values from .env (same as vault-init seed); container runtime creds come from Vault REST.
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s

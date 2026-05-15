@@ -21,6 +21,7 @@ fi
 
 echo "[vault-init] Seeding secret/currency-converter"
 vault kv put secret/currency-converter \
+  postgres.db="${POSTGRES_DB}" \
   spring.datasource.url="jdbc:postgresql://db:5432/${POSTGRES_DB}" \
   spring.datasource.username="${POSTGRES_USER}" \
   spring.datasource.password="${POSTGRES_PASSWORD}" \
