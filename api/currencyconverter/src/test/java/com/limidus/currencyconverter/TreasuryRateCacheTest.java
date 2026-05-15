@@ -33,22 +33,22 @@ class TreasuryRateCacheTest {
         when(treasuryApiClient.fetchBestRateWithinWindow("Canada-Dollar", purchaseDate, windowStart))
                 .thenReturn(Optional.of(row));
 
-        TreasuryRateRow result = treasuryRateCache.load("Canada-Dollar", purchaseDate, asOf);
+        Optional<TreasuryRateRow> result = treasuryRateCache.load("Canada-Dollar", purchaseDate, asOf);
 
-        assertThat(result).isSameAs(row);
+        assertThat(result).contains(row);
         verify(treasuryApiClient).fetchBestRateWithinWindow("Canada-Dollar", purchaseDate, windowStart);
     }
 
     @Test
-    void load_returnsNullWhenTreasuryEmpty() {
+    void load_returnsEmptyWhenTreasuryEmpty() {
         LocalDate purchaseDate = LocalDate.of(2024, 6, 15);
         LocalDate asOf = LocalDate.of(2026, 5, 14);
         LocalDate windowStart = LocalDate.of(2023, 12, 15);
         when(treasuryApiClient.fetchBestRateWithinWindow("X", purchaseDate, windowStart))
                 .thenReturn(Optional.empty());
 
-        TreasuryRateRow result = treasuryRateCache.load("X", purchaseDate, asOf);
+        Optional<TreasuryRateRow> result = treasuryRateCache.load("X", purchaseDate, asOf);
 
-        assertThat(result).isNull();
+        assertThat(result).isEmpty();
     }
 }

@@ -1,31 +1,47 @@
 package com.limidus.currencyconverter.service;
 
-import com.limidus.currencyconverter.client.TreasuryApiClient.TreasuryRateRow;
 import com.limidus.currencyconverter.config.TreasuryProperties;
+import com.limidus.currencyconverter.domain.ExchangeRate;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public class ExchangeRateService {
 
-    private final TreasuryRateCache treasuryRateCache;
+    private static final Logger log = LoggerFactory.getLogger(ExchangeRateService.class);
+
+    private final ExchangeRateCache exchangeRateCache;
     private final ZoneId treasuryZone;
 
-    public ExchangeRateService(TreasuryRateCache treasuryRateCache, TreasuryProperties treasuryProperties) {
-        this.treasuryRateCache = treasuryRateCache;
+    public ExchangeRateService(ExchangeRateCache exchangeRateCache, TreasuryProperties treasuryProperties) {
+        this.exchangeRateCache = exchangeRateCache;
         this.treasuryZone = ZoneId.of(treasuryProperties.getTimezone());
     }
 
     /**
-     * Latest qualifying Treasury rate for {@code purchaseDate}. Delegates to {@link TreasuryRateCache}
-     * with today's date in Treasury's timezone (ET) as the {@code asOfDate} component of the cache
-     * key. This ensures a cache miss fires when Treasury's calendar day rolls over in ET rather than
-     * UTC, keeping the cached rate aligned with Treasury's publication schedule.
+     * 3-tier lookup: in-process cache → database → Treasury API.
+     *
+     * <p>Delegates to {@link ExchangeRateCache#load} with today's date in Treasury's ET timezone
+     * as the {@code asOfDate} cache-key component. Keeping the timezone computation here (outside
+     * the {@code @Cacheable} proxy) avoids SpEL field-access issues on the proxy object.
      */
-    public Optional<TreasuryRateRow> findMostRecentRate(String countryCurrencyDesc, LocalDate purchaseDate) {
-        TreasuryRateRow row = treasuryRateCache.load(countryCurrencyDesc, purchaseDate, LocalDate.now(treasuryZone));
-        return Optional.ofNullable(row);
+    public Optional<ExchangeRate> findMostRecentRate(String currency, LocalDate purchaseDate) {
+        LocalDate asOfDate = LocalDate.now(treasuryZone);
+        String cacheKey = currency + "-" + purchaseDate + "-" + asOfDate;
+        log.debug("[CACHE LOOKUP] Requesting rate for key={}", cacheKey);
+        Optional<ExchangeRate> result = exchangeRateCache.load(currency, purchaseDate, asOfDate);
+        if (result.isPresent()) {
+            // If the cache served this from memory the ExchangeRateCache body was skipped entirely;
+            // we log here to capture both hit and miss paths at the service boundary.
+            log.debug("[CACHE RESULT] key={} — found effectiveDate={} rate={}",
+                    cacheKey, result.get().getEffectiveDate(), result.get().getRate());
+        } else {
+            log.warn("[CACHE RESULT] key={} — no qualifying rate found", cacheKey);
+        }
+        return result;
     }
 }

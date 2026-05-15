@@ -15,6 +15,27 @@ public class TreasuryProperties {
      */
     private String timezone = "America/New_York";
 
+    /**
+     * When true, all exchange rates for the current 6-month window are fetched from the Treasury
+     * API on startup and refreshed on the schedule defined by {@code bulk-load-cron}. Keeps the
+     * database warm so per-request Treasury API calls rarely fire. Disable in environments without
+     * reliable outbound internet access or when low startup latency is required.
+     */
+    private boolean bulkLoadEnabled = false;
+
+    /**
+     * Cron expression controlling how often the bulk rate loader refreshes the database.
+     * The timezone used to evaluate the expression is {@code app.treasury.timezone} (ET by default).
+     *
+     * <p>Examples:
+     * <ul>
+     *   <li>{@code "0 30 9 * * *"} — once daily at 09:30 (default, aligns with Treasury's morning publish)
+     *   <li>{@code "0 30 9,15 * * *"} — twice daily at 09:30 and 15:30 (catches afternoon amendments)
+     *   <li>{@code "0 0/30 9-17 * * MON-FRI"} — every 30 min during Treasury business hours on weekdays
+     * </ul>
+     */
+    private String bulkLoadCron = "0 30 9 * * *";
+
     public String getBaseUrl() {
         return baseUrl;
     }
@@ -29,5 +50,21 @@ public class TreasuryProperties {
 
     public void setTimezone(String timezone) {
         this.timezone = timezone;
+    }
+
+    public boolean isBulkLoadEnabled() {
+        return bulkLoadEnabled;
+    }
+
+    public void setBulkLoadEnabled(boolean bulkLoadEnabled) {
+        this.bulkLoadEnabled = bulkLoadEnabled;
+    }
+
+    public String getBulkLoadCron() {
+        return bulkLoadCron;
+    }
+
+    public void setBulkLoadCron(String bulkLoadCron) {
+        this.bulkLoadCron = bulkLoadCron;
     }
 }

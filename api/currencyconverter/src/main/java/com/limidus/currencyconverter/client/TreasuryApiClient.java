@@ -7,6 +7,8 @@ import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
@@ -17,6 +19,7 @@ import com.limidus.currencyconverter.exception.InvalidRequestException;
 @Component
 public class TreasuryApiClient {
 
+    private static final Logger log = LoggerFactory.getLogger(TreasuryApiClient.class);
     private static final String RATES_PATH = "/v1/accounting/od/rates_of_exchange";
 
     private final RestClient restClient;
@@ -52,6 +55,7 @@ public class TreasuryApiClient {
                 .build()
                 .toUri();
 
+        log.info("[TREASURY API] GET {}", uri);
         try {
             TreasuryRatesResponse body = restClient
                     .get()
@@ -60,12 +64,67 @@ public class TreasuryApiClient {
                     .body(TreasuryRatesResponse.class);
 
             if (body == null || body.data() == null || body.data().isEmpty()) {
+                log.info("[TREASURY API] Response: 0 rows returned for currency={} purchaseDate={}",
+                        countryCurrencyDesc, purchaseDate);
                 return Optional.empty();
             }
-            return Optional.of(body.data().getFirst());
+            TreasuryRateRow row = body.data().getFirst();
+            log.info("[TREASURY API] Response: 1 row — currency={} effectiveDate={} recordDate={} rate={}",
+                    row.countryCurrencyDesc(), row.effectiveDate(), row.recordDate(), row.exchangeRate());
+            return Optional.of(row);
         } catch (RestClientResponseException e) {
+            log.error("[TREASURY API] HTTP {} error for currency={} uri={}", e.getStatusCode().value(),
+                    countryCurrencyDesc, uri);
             throw new InvalidRequestException(
                     "Treasury Fiscal Data API error: HTTP " + e.getStatusCode().value());
+        }
+    }
+
+    /**
+     * Fetches all currency exchange rates whose {@code effective_date} falls within the given
+     * window. Used by the bulk loader to warm the database with every currency at once.
+     *
+     * <p>The Treasury API returns ~170 currencies per quarter, and there can be 2–3 quarters in a
+     * 6-month window, so a page size of 500 is sufficient to retrieve all rows in a single call.
+     * If the response is unexpectedly paginated (unlikely in practice), only the first page is
+     * returned — the fill-as-you-go path will cover any gaps on the next request.
+     */
+    public List<TreasuryRateRow> fetchAllRatesInWindow(LocalDate windowStart, LocalDate windowEnd) {
+        String filter = "effective_date:lte:%s,effective_date:gte:%s"
+                .formatted(windowEnd, windowStart);
+
+        var uri = UriComponentsBuilder.fromUriString(treasuryProperties.getBaseUrl() + RATES_PATH)
+                .queryParam("fields", "country_currency_desc,exchange_rate,record_date,effective_date")
+                .queryParam("filter", filter)
+                .queryParam("sort", "-effective_date")
+                .queryParam("page[size]", 500)
+                .build()
+                .toUri();
+
+        log.info("[TREASURY API][BULK] GET {}", uri);
+        try {
+            TreasuryRatesResponse body = restClient
+                    .get()
+                    .uri(uri)
+                    .retrieve()
+                    .body(TreasuryRatesResponse.class);
+
+            if (body == null || body.data() == null) {
+                log.warn("[TREASURY API][BULK] Empty response for window {}/{}", windowStart, windowEnd);
+                return List.of();
+            }
+            int count = body.data().size();
+            log.info("[TREASURY API][BULK] Response: {} rows for window {}/{}",
+                    count, windowStart, windowEnd);
+            if (count > 0) {
+                log.debug("[TREASURY API][BULK] First row sample: {}", body.data().getFirst());
+            }
+            return body.data();
+        } catch (RestClientResponseException e) {
+            log.error("[TREASURY API][BULK] HTTP {} error for window {}/{}: {}",
+                    e.getStatusCode().value(), windowStart, windowEnd, e.getMessage());
+            throw new InvalidRequestException(
+                    "Treasury Fiscal Data API error during bulk load: HTTP " + e.getStatusCode().value());
         }
     }
 

@@ -2,16 +2,26 @@ spring:
   application:
     name: currency-converter
   datasource:
-    url: jdbc:h2:mem:testdb
-    driverClassName: org.h2.Driver
-    username: sa
-    password: password
+    url: jdbc:postgresql://localhost:5432/currencyconverter
+    driverClassName: org.postgresql.Driver
+    username: ccuser
+    password: changeme
   jpa:
-    database-platform: org.hibernate.dialect.H2Dialect
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
       ddl-auto: validate
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.yaml
+  devtools:
+    livereload:
+      enabled: false
+    restart:
+      enabled: false
+
+logging:
+  level:
+    # Suppress WARN noise from 404s on paths like /inform (DevTools live-reload probe)
+    org.springframework.web.servlet.mvc.method.annotation.ExceptionHandlerExceptionResolver: ERROR
 
 management:
   endpoints:
@@ -28,3 +38,10 @@ app:
     # Treasury publishes in Eastern Time; cache keys use this zone so a miss
     # does not fire before Treasury has actually released data for the day.
     timezone: America/New_York
+    # Set true to pre-populate all Treasury exchange rates on startup and refresh
+    # on the schedule below. Keeps the DB warm so per-request API calls rarely fire.
+    bulk-load-enabled: false
+    # Cron schedule (evaluated in app.treasury.timezone) controlling how often the
+    # bulk loader refreshes the DB. Default: once daily at 09:30 ET.
+    # Use "0 30 9,15 * * *" to also catch afternoon mid-quarter amendments.
+    bulk-load-cron: "0 30 9 * * *"

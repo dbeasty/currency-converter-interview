@@ -1,0 +1,12 @@
+databaseChangeLog:
+  - changeSet:
+      id: 004-add-indexes
+      author: you
+
+      changes:
+        - createIndex:
+            tableName: conversion_records
+            indexName: idx_conversion_records_transaction_id
+            columns:
+              - column:
+                  name: transaction_id
