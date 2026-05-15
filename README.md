@@ -24,7 +24,7 @@ There are two supported ways to run the application:
 | Approach | When to use |
 |----------|-------------|
 | **Docker (recommended)** | Default for reviewers and day-to-day use. Vault, PostgreSQL, and the API run in containers—no host database install. Start with `./scripts/start.sh` from the repo root. |
-| **Standalone on the host** | Run `./gradlew bootRun` in `api/currencyconverter` with profile **`h2`** only—in-memory H2, no database install. |
+| **Standalone on the host** | Run `./gradlew bootRun` in `api/currencyconverter`. Default profile is **`h2`** (in-memory H2, no database install). |
 
 The sections below list **requirements** and **quick start** for each path.
 
@@ -93,13 +93,13 @@ For other start options reference the [docs/java-app.md](docs/java-app.md) and t
 
 ## Quick Start (standalone on the host)
 
-From `api/currencyconverter`, with profile **`h2`** (in-memory H2 only):
+From `api/currencyconverter`:
 
 ```bash
 ./gradlew bootRun --args='--spring.profiles.active=h2'
 ```
 
-The API listens on **http://localhost:8080**. Transaction endpoints require a JWT—see [security.md](docs/security.md) or the token example under Quick Start (Docker) above.
+The API listens on **http://localhost:8080**.
 
 ---
 

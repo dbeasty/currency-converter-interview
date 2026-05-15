@@ -19,6 +19,7 @@ spring:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
   cloud:
     vault:
+      enabled: false
       uri: ${VAULT_ADDR:http://127.0.0.1:8200}
       authentication: TOKEN
       token: ${VAULT_TOKEN:}
