@@ -77,6 +77,34 @@ docker compose --profile tests run --rm -it --no-deps \
 
 Some cases call the **live** U.S. Treasury API; they need network access and can fail if Treasury is unreachable. For a manual HTTP CLI (create / convert / smoke), see [integration_tests/README.md](../api/currencyconverter/integration_tests/README.md).
 
+### Testing with curl
+
+Use these commands for a quick end-to-end smoke test against a running API (`http://localhost:8080`).
+
+```bash
+# 1) Health + version
+curl -s http://localhost:8080/actuator/health
+curl -s http://localhost:8080/version
+
+# 2) Get JWT
+TOKEN=$(curl -s -X POST http://localhost:8080/auth/token \
+  -H 'Content-Type: application/json' \
+  -d '{"clientId":"default-client","clientSecret":"change-me-secret"}' \
+  | sed -n 's/.*"accessToken":"\([^"]*\)".*/\1/p')
+
+# 3) Create purchase transaction
+curl -s -X POST http://localhost:8080/transactions \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"description":"curl smoke","transactionDate":"2024-06-15","purchaseAmountUsd":100.00}'
+
+# 4) Convert by transaction id (replace <TX_ID> with id from create response)
+curl -s "http://localhost:8080/transactions/<TX_ID>?countryCurrencyDesc=Canada-Dollar" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+Expected: create returns `201`, convert returns `200` with `exchangeRateUsed` and `convertedAmount`.
+
 ### Performance and load tests (Locust)
 
 Load and throughput testing for the currency converter API using [Locust](https://locust.io). Locust drives HTTP against `PERF_BASE_URL` (same defaults as integration tests in Docker: `http://api:8080`).

@@ -70,7 +70,27 @@ scripts\start.bat -d
 
 The API is at **http://localhost:8080**.
 
-### Verify
+---
+
+## Quick Start (standalone on the host)
+
+From `api/currencyconverter`:
+
+```bash
+./gradlew bootRun --args='--spring.profiles.active=h2'
+```
+
+The API listens on **http://localhost:8080**.
+
+---
+
+## More Start Options
+
+For other start options reference the [docs/java-app.md](docs/java-app.md) and the [docs/docker.md](docs/docker.md).
+
+---
+
+## Verify (both modes)
 
 ```bash
 curl -s http://localhost:8080/actuator/health
@@ -85,21 +105,7 @@ curl -s -X POST http://localhost:8080/auth/token \
   -d '{"clientId":"default-client","clientSecret":"change-me-secret"}'
 ```
 
-### More options
-
-For other start options reference the [docs/java-app.md](docs/java-app.md) and the [docs/docker.md](docs/docker.md).
-
----
-
-## Quick Start (standalone on the host)
-
-From `api/currencyconverter`:
-
-```bash
-./gradlew bootRun --args='--spring.profiles.active=h2'
-```
-
-The API listens on **http://localhost:8080**.
+For more test and validation details, see [docs/testing.md](docs/testing.md).
 
 ---
 
