@@ -9,10 +9,37 @@ The project runs as two containers orchestrated by Docker Compose:
 
 ## Prerequisites
 
-- Docker Desktop (or Docker Engine + Compose plugin)
-- A completed Gradle build (produces the JAR the `api` image copies)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running (whale icon in menu bar must be active)
+- Java 21 (for the Gradle build step)
 
-## Quick Start
+---
+
+## Running with the start script
+
+The simplest way to run the project is via the provided script from the repo root:
+
+```bash
+# Full stack — builds the JAR, then starts api + db
+./scripts/start.sh
+
+# Database only — skips the Gradle build, just starts PostgreSQL
+./scripts/start.sh --db-only
+
+# Run in the background (detached)
+./scripts/start.sh -d
+./scripts/start.sh --db-only -d
+```
+
+The script will:
+1. Check Docker is running and fail early with a clear message if not
+2. Build the JAR via `./gradlew bootJar` (skipped for `--db-only`)
+3. Start the appropriate Compose file
+
+---
+
+## Running manually
+
+If you prefer to run commands yourself:
 
 **1. Build the JAR**
 
@@ -22,33 +49,11 @@ cd api/currencyconverter
 cd ../..
 ```
 
-**2. Create your `.env` file**
+This produces `api/currencyconverter/build/libs/currencyconverter-0.0.1-SNAPSHOT.jar`, which the Dockerfile copies into the image.
 
-Copy the example and set your credentials:
+**2. Set up credentials**
 
-```bash
-cp .env.example .env   # if an example exists, otherwise edit .env directly
-```
-
-The file lives at the repo root and is git-ignored. See [Credentials](#credentials) below.
-
-**3. Start the stack**
-
-```bash
-docker compose up --build
-```
-
-The `api` service will wait for PostgreSQL to pass its health check before starting.
-
-**4. Verify**
-
-```
-GET http://localhost:8080/transactions
-```
-
-## Credentials
-
-Credentials are stored in `.env` at the repo root:
+The `.env` file at the repo root is git-ignored. Create it (or edit the existing one):
 
 ```
 POSTGRES_DB=currencyconverter
@@ -56,44 +61,76 @@ POSTGRES_USER=ccuser
 POSTGRES_PASSWORD=changeme
 ```
 
-> **Note:** These are passed to both the `db` and `api` containers via `env_file`. The `api` container maps them to `SPRING_DATASOURCE_*` environment variables, which Spring Boot uses to override the H2 defaults in `application.properties` / `application.yml`.
+**3. Start the stack**
+
+```bash
+# Full stack
+docker compose up --build
+
+# Database only
+docker compose -f docker-compose.db.yml up
+```
+
+The `api` service waits for PostgreSQL to pass its health check before starting. Liquibase runs migrations automatically on first boot.
+
+**4. Verify**
+
+```
+GET http://localhost:8080/transactions
+```
+
+---
+
+## Credentials
+
+Credentials live in `.env` at the repo root and are git-ignored:
+
+```
+POSTGRES_DB=currencyconverter
+POSTGRES_USER=ccuser
+POSTGRES_PASSWORD=changeme
+```
+
+Both the `db` and `api` containers read this file. The `api` container maps the values to `SPRING_DATASOURCE_*` environment variables, which Spring Boot uses to override the H2 defaults baked into `application.properties` / `application.yml`.
 
 ### Planned: HashiCorp Vault
 
-The credential keys above are stable. When migrating to Vault, replace the `.env` values with one of:
+When migrating to Vault, replace the `.env` values with one of:
 
-- **Vault Agent** — inject a rendered `.env` file at container startup
-- **Spring Cloud Vault** — add `spring-cloud-starter-vault-config` and point `spring.cloud.vault.*` at your Vault server; the same `spring.datasource.*` keys can be read from a Vault KV path
+- **Vault Agent** — inject a rendered `.env` at container startup
+- **Spring Cloud Vault** — add `spring-cloud-starter-vault-config`; point `spring.cloud.vault.*` at your Vault server and map credentials to the same `spring.datasource.*` keys
 
-## Container Details
+---
+
+## Container details
 
 ### `api`
 
 - Base image: `eclipse-temurin:21-jre-alpine`
 - Copies `build/libs/currencyconverter-0.0.1-SNAPSHOT.jar` → `/app/app.jar`
 - H2 console is explicitly disabled (`SPRING_H2_CONSOLE_ENABLED=false`)
-- Liquibase runs on startup and applies all pending changesets against PostgreSQL
+- Liquibase applies all pending changesets against PostgreSQL on startup
 
 ### `db`
 
 - `postgres:17-alpine` with a named volume (`postgres_data`) for persistence
 - Health check: `pg_isready` polled every 10 s — `api` will not start until this passes
+- Port `5432` is exposed to the host in both Compose files
 
-## Useful Commands
+---
+
+## Useful commands
 
 ```bash
-# Start in the background
-docker compose up -d
-
 # Tail logs for the API
 docker compose logs -f api
 
 # Connect to PostgreSQL directly
 docker compose exec db psql -U ccuser -d currencyconverter
 
-# Stop and remove containers (data volume is preserved)
+# Stop containers (data volume preserved)
 docker compose down
 
-# Stop and also remove the data volume
+# Stop and delete the data volume (full reset)
 docker compose down -v
 ```

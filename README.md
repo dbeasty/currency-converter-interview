@@ -4,16 +4,21 @@ A Spring Boot currency conversion service backed by PostgreSQL, with a Docker Co
 
 ## Documentation
 
-- [Docker Setup](docs/docker.md) — running the full stack locally with Docker Compose
+- [Docker Setup](docs/docker.md) — running the full stack locally, credentials, and deploy instructions
 
 ## Quick Start
 
-```bash
-# 1. Build the JAR
-cd api/currencyconverter && ./gradlew bootJar && cd ../..
+Make sure Docker Desktop is running, then from the repo root:
 
-# 2. Start the stack
-docker compose up --build
+```bash
+# Full stack — builds the JAR, starts api + db
+./scripts/start.sh
+
+# Database only
+./scripts/start.sh --db-only
+
+# Run in the background
+./scripts/start.sh -d
 ```
 
 The API will be available at `http://localhost:8080`.
