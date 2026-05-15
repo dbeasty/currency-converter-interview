@@ -226,4 +226,50 @@ To replace the data source, swap `TreasuryApiClient` for a commercial provider (
 
 ---
 
+## Scaling and Resilience
+
+### Single-instance baseline
+
+Performance testing on a local MacBook (JVM + PostgreSQL on the same machine, Locust as the load generator) reached **~509 req/s** aggregated at ~120 concurrent users with p99 at 10 ms and zero failures. The service was not yet saturated at that load — a dedicated host with a separate load generator would push throughput higher. See [testing.md](testing.md#benchmark-results) for full results.
+
+### Standalone mode (embedded H2)
+
+Running with the `h2` profile gives a fully self-contained process — no external database. This is convenient for development and smoke testing, but **conversion and transaction records are lost on restart**. Multiple instances cannot share state because each holds its own in-memory H2 database. This mode is unsuitable for any setup that requires durable records or more than one app instance.
+
+### Single Docker Compose instance (current default)
+
+The default `docker-compose.yml` runs one API container backed by one PostgreSQL container. Docker Compose restarts crashed containers automatically (`restart: unless-stopped` / `on-failure`), giving basic process-level resilience. Conversion records and exchange rates are durable in PostgreSQL across API restarts. This setup is appropriate for low-to-medium traffic where a brief restart window is acceptable.
+
+**Limitations:** single point of failure on both the API and the database; no horizontal scaling.
+
+### Multi-instance API, single shared PostgreSQL
+
+Multiple API instances can run against a single PostgreSQL database without code changes — the application is stateless at the HTTP layer (JWT, no session). A reverse proxy or load balancer (e.g. nginx, Traefik, AWS ALB) routes requests across instances.
+
+The three-level cache introduces one complexity: **each instance holds its own in-process Caffeine cache**. A rate fetched and cached by instance A is not visible to instance B until instance B has its own cache miss. This is generally acceptable — the DB layer (Tier 2) ensures consistency — but means cache warming is per-instance, not shared.
+
+**Limitations:** the PostgreSQL node is still a single point of failure; write throughput is bounded by one primary.
+
+### PostgreSQL with replication (read replicas)
+
+Adding read replicas allows read-heavy workloads (rate lookups, transaction fetches) to scale independently of writes.
+
+| Operation | Routing |
+|---|---|
+| `POST /transactions` | Primary — requires durable write |
+| `GET /transactions/{id}` — transaction fetch | Read replica — stale tolerance is acceptable (record is immutable after creation) |
+| Exchange rate reads (`exchange_rates` table) | Read replica — rates change infrequently; replication lag is negligible relative to Treasury's quarterly publish cadence |
+| Exchange rate upserts (new Treasury rates) | Primary |
+| `conversion_records` inserts | Primary |
+
+**Complexities introduced:**
+
+- Spring datasource routing must be configured to direct reads vs writes to the correct node (e.g. via `AbstractRoutingDataSource` or a connection pooler such as PgBouncer/RDS Proxy).
+- Replication lag means a rate upserted on the primary may not yet be visible on the replica; a subsequent read on the replica could fall through to Tier 3 (Treasury API) unnecessarily. This is a correctness edge case rather than a failure, but it can cause redundant external calls.
+- The in-process Caffeine cache on each API instance partially mitigates replica lag — once a rate is cached in-process, the replica is not consulted again until the cache key expires.
+
+See [testing.md](testing.md) for load test methodology and [docker.md](docker.md) for the current single-node Compose setup.
+
+---
+
 See [docker.md](docker.md) for runtime/deployment instructions, [service-design.md](service-design.md) for HTTP endpoints and request/response behavior, and [testing.md](testing.md) for test tiers and execution.
