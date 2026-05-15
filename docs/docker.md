@@ -14,14 +14,18 @@ The core stack is orchestrated by Docker Compose: **Vault** (secrets), **Postgre
 
 ## Prerequisites
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running (whale icon in menu bar must be active)
-- Java 21 (for the Gradle build step)
+- **Docker Desktop or equivalent** — enough to run `docker compose` from the repo root
+- **Java 21** on the host — for `api/currencyconverter/gradlew bootJar` before the API image is built
+
+Optional: `.env` at the repo root with `VAULT_TOKEN=dev-root-token` (see [Credentials](#credentials) below).
 
 ---
 
 ## Running with the start script
 
-The simplest way to run the project is via the provided script from the repo root:
+The simplest way to run the project is via the provided script from the repo root.
+
+**macOS / Linux:**
 
 ```bash
 # Full stack — builds the JAR, then starts vault + db + api
@@ -39,9 +43,19 @@ The simplest way to run the project is via the provided script from the repo roo
 ./scripts/start.sh --db-only -d
 ```
 
+**Windows (CMD or PowerShell):**
+
+```bat
+scripts\start.bat
+scripts\start.bat --db-only
+scripts\start.bat --test
+scripts\start.bat --perf
+scripts\start.bat -d
+```
+
 The script will:
 1. Check Docker is running and fail early with a clear message if not
-2. Build the JAR via `./gradlew bootJar` (skipped for `--db-only`)
+2. Build the JAR via `gradlew bootJar` (skipped for `--db-only`)
 3. Start the appropriate Compose file
 
 ---

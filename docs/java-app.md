@@ -96,6 +96,50 @@ These match `application-h2.yml`. Liquibase still applies the same changelog to 
 
 ---
 
+## API quick reference
+
+The full API contract lives in [service-design.md](service-design.md). For local Java runs, these are the main endpoints:
+
+### `POST /transactions`
+
+Stores a purchase transaction in USD.
+
+Example request:
+
+```json
+{
+  "description": "Office chair",
+  "transactionDate": "2025-03-15",
+  "purchaseAmountUsd": 249.99
+}
+```
+
+Validation rules:
+
+- `description`: required, max 50 characters
+- `transactionDate`: required, must not be a future date
+- `purchaseAmountUsd`: required, positive amount, rounded to nearest cent
+
+### `GET /transactions/{id}?countryCurrencyDesc=Canada-Dollar`
+
+Returns the stored transaction converted to the requested Treasury currency descriptor.
+
+Conversion rules:
+
+- Uses most recent rate with `effective_date <= transactionDate`
+- Rate must be within 6 months prior to the transaction date
+- Returns `400` if no qualifying rate exists
+
+### Operational endpoints
+
+- `POST /auth/token` - exchange `clientId` + `clientSecret` for JWT
+- `GET /actuator/health`
+- `GET /version`
+
+See [security.md](security.md) for auth details and [testing.md](testing.md) for runnable request/test flows.
+
+---
+
 ## Package Structure
 
 ```

@@ -9,3 +9,13 @@ spring:
   h2:
     console:
       enabled: true
+
+app:
+  security:
+    jwt-secret: "change-me-in-production-must-be-at-least-32-chars!!"
+    jwt-expiry-seconds: 3600
+    clients:
+      - client-id: default-client
+        client-secret: change-me-secret
+      - client-id: admin-client
+        client-secret: change-me-admin-secret
