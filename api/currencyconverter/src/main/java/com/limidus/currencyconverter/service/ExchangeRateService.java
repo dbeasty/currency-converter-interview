@@ -1,7 +1,9 @@
 package com.limidus.currencyconverter.service;
 
 import com.limidus.currencyconverter.client.TreasuryApiClient.TreasuryRateRow;
+import com.limidus.currencyconverter.config.TreasuryProperties;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 
@@ -9,18 +11,21 @@ import org.springframework.stereotype.Service;
 public class ExchangeRateService {
 
     private final TreasuryRateCache treasuryRateCache;
+    private final ZoneId treasuryZone;
 
-    public ExchangeRateService(TreasuryRateCache treasuryRateCache) {
+    public ExchangeRateService(TreasuryRateCache treasuryRateCache, TreasuryProperties treasuryProperties) {
         this.treasuryRateCache = treasuryRateCache;
+        this.treasuryZone = ZoneId.of(treasuryProperties.getTimezone());
     }
 
     /**
      * Latest qualifying Treasury rate for {@code purchaseDate}. Delegates to {@link TreasuryRateCache}
-     * with {@code LocalDate.now()} so the cache key includes today: first request each day hits the
-     * API; further requests the same day reuse the cached rate.
+     * with today's date in Treasury's timezone (ET) as the {@code asOfDate} component of the cache
+     * key. This ensures a cache miss fires when Treasury's calendar day rolls over in ET rather than
+     * UTC, keeping the cached rate aligned with Treasury's publication schedule.
      */
-    public Optional<TreasuryRateRow> findBestRate(String countryCurrencyDesc, LocalDate purchaseDate) {
-        TreasuryRateRow row = treasuryRateCache.load(countryCurrencyDesc, purchaseDate, LocalDate.now());
+    public Optional<TreasuryRateRow> findMostRecentRate(String countryCurrencyDesc, LocalDate purchaseDate) {
+        TreasuryRateRow row = treasuryRateCache.load(countryCurrencyDesc, purchaseDate, LocalDate.now(treasuryZone));
         return Optional.ofNullable(row);
     }
 }

@@ -29,7 +29,7 @@ class TreasuryRateCacheTest {
         LocalDate purchaseDate = LocalDate.of(2024, 6, 15);
         LocalDate asOf = LocalDate.of(2026, 5, 14);
         LocalDate windowStart = LocalDate.of(2023, 12, 15);
-        var row = new TreasuryRateRow("Canada-Dollar", "1.3", "2024-03-31");
+        var row = new TreasuryRateRow("Canada-Dollar", "1.3", "2024-03-31", "2024-03-31");
         when(treasuryApiClient.fetchBestRateWithinWindow("Canada-Dollar", purchaseDate, windowStart))
                 .thenReturn(Optional.of(row));
 

@@ -1,8 +1,8 @@
 package com.limidus.currencyconverter.dto;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -22,5 +22,5 @@ public class TransactionCreatedResponse {
 
     private BigDecimal purchaseAmountUsd;
 
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 }

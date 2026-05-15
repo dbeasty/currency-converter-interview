@@ -7,9 +7,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.limidus.currencyconverter.client.TreasuryApiClient.TreasuryRateRow;
+import com.limidus.currencyconverter.domain.ExchangeRate;
 import com.limidus.currencyconverter.domain.Transaction;
 import com.limidus.currencyconverter.exception.InvalidRequestException;
 import com.limidus.currencyconverter.repository.ConversionRepository;
+import com.limidus.currencyconverter.repository.ExchangeRateRepository;
 import com.limidus.currencyconverter.service.CurrencyConversionService;
 import com.limidus.currencyconverter.service.ExchangeRateService;
 import com.limidus.currencyconverter.service.TransactionService;
@@ -33,6 +35,9 @@ class CurrencyConversionServiceTest {
     private ExchangeRateService exchangeRateService;
 
     @Mock
+    private ExchangeRateRepository exchangeRateRepository;
+
+    @Mock
     private ConversionRepository conversionRepository;
 
     @InjectMocks
@@ -48,8 +53,18 @@ class CurrencyConversionServiceTest {
                 .amountUsd(new BigDecimal("100.00"))
                 .build();
         when(transactionService.getById(id)).thenReturn(tx);
-        when(exchangeRateService.findBestRate("Canada-Dollar", tx.getTransactionDate()))
-                .thenReturn(Optional.of(new TreasuryRateRow("Canada-Dollar", "1.355", "2024-01-01")));
+        when(exchangeRateService.findMostRecentRate("Canada-Dollar", tx.getTransactionDate()))
+                .thenReturn(Optional.of(new TreasuryRateRow("Canada-Dollar", "1.355", "2024-01-01", "2024-01-01")));
+
+        LocalDate rateDate = LocalDate.of(2024, 1, 1);
+        when(exchangeRateRepository.findByCurrencyAndEffectiveDate("Canada-Dollar", rateDate))
+                .thenReturn(Optional.empty());
+        when(exchangeRateRepository.save(any(ExchangeRate.class)))
+                .thenAnswer(inv -> {
+                    ExchangeRate e = inv.getArgument(0);
+                    e.setId(UUID.randomUUID());
+                    return e;
+                });
 
         var response = currencyConversionService.getConvertedPurchase(id, "Canada-Dollar");
 
@@ -68,7 +83,7 @@ class CurrencyConversionServiceTest {
                 .amountUsd(new BigDecimal("10.00"))
                 .build();
         when(transactionService.getById(id)).thenReturn(tx);
-        when(exchangeRateService.findBestRate("Nowhere-Dollar", tx.getTransactionDate()))
+        when(exchangeRateService.findMostRecentRate("Nowhere-Dollar", tx.getTransactionDate()))
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> currencyConversionService.getConvertedPurchase(id, "Nowhere-Dollar"))

@@ -25,5 +25,11 @@ public class ConvertedTransactionResponse {
 
     private BigDecimal exchangeRateUsed;
 
+    /** Treasury record_date of the rate applied. */
+    private LocalDate exchangeRateDate;
+
+    /** How many days before the purchase date the rate record was published. */
+    private long exchangeRateAgeDays;
+
     private BigDecimal convertedAmount;
 }

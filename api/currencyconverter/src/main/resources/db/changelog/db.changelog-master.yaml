@@ -3,10 +3,7 @@ databaseChangeLog:
       file: db/changelog/changes/001-create-transaction-table.yaml
 
   - include:
-      file: db/changelog/changes/002-create-conversion-table.yaml
-
-  - include:
       file: db/changelog/changes/003-create-exchange-rate-table.yaml
 
   - include:
-      file: db/changelog/changes/004-widen-currency-columns.yaml
+      file: db/changelog/changes/002-create-conversion-table.yaml

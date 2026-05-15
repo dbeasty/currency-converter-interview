@@ -21,8 +21,14 @@ databaseChangeLog:
                     nullable: false
 
               - column:
-                  name: currency
-                  type: varchar(3)
+                  name: exchange_rate_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: exchange_rate_effective_date
+                  type: date
                   constraints:
                     nullable: false
 
@@ -49,3 +55,10 @@ databaseChangeLog:
             referencedTableName: transactions
             referencedColumnNames: id
             constraintName: fk_conversion_transaction
+
+        - addForeignKeyConstraint:
+            baseTableName: conversion_records
+            baseColumnNames: exchange_rate_id
+            referencedTableName: exchange_rates
+            referencedColumnNames: id
+            constraintName: fk_conversion_exchange_rate

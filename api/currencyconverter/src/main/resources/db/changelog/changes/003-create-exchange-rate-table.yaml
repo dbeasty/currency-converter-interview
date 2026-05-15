@@ -16,7 +16,7 @@ databaseChangeLog:
 
               - column:
                   name: currency
-                  type: varchar(3)
+                  type: varchar(255)
                   constraints:
                     nullable: false
 

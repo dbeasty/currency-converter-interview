@@ -1,3 +1,6 @@
+# Environment / secrets — never commit
+.env
+
 # Compiled class file
 *.class
 

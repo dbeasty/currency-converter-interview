@@ -28,19 +28,26 @@ public class TreasuryApiClient {
     }
 
     /**
-     * Returns the best matching Treasury reporting rate row: latest {@code record_date} on or before
-     * {@code purchaseDate} and on or after {@code windowStartInclusive}, for the given
-     * {@code countryCurrencyDesc} (Fiscal Data {@code country_currency_desc} value).
+     * Returns the most recent Treasury rate row whose {@code effective_date} is on or before
+     * {@code purchaseDate} and on or after {@code windowStartInclusive}.
+     *
+     * <p>We filter and sort by {@code effective_date} rather than {@code record_date} because
+     * Treasury publishes mid-quarter amendments for volatile currencies (e.g. Argentina, Turkey).
+     * A mid-quarter amendment keeps the original quarter-end {@code record_date} but carries a
+     * later {@code effective_date} reflecting when that amended rate became authoritative. Sorting
+     * by {@code -effective_date} ensures the amendment surfaces above the baseline rate for the
+     * same quarter, so callers always receive the most current rate that was in effect on the
+     * purchase date rather than an outdated baseline.
      */
     public Optional<TreasuryRateRow> fetchBestRateWithinWindow(
             String countryCurrencyDesc, LocalDate purchaseDate, LocalDate windowStartInclusive) {
-        String filter = "country_currency_desc:eq:%s,record_date:lte:%s,record_date:gte:%s"
+        String filter = "country_currency_desc:eq:%s,effective_date:lte:%s,effective_date:gte:%s"
                 .formatted(escapeDescriptorForFilter(countryCurrencyDesc), purchaseDate, windowStartInclusive);
 
         var uri = UriComponentsBuilder.fromUriString(treasuryProperties.getBaseUrl() + RATES_PATH)
-                .queryParam("fields", "country_currency_desc,exchange_rate,record_date")
+                .queryParam("fields", "country_currency_desc,exchange_rate,record_date,effective_date")
                 .queryParam("filter", filter)
-                .queryParam("sort", "-record_date")
+                .queryParam("sort", "-effective_date")
                 .queryParam("page[size]", 1)
                 .build()
                 .toUri();
@@ -75,11 +82,11 @@ public class TreasuryApiClient {
         }
     }
 
-    static LocalDate parseRecordDate(String recordDate) {
+    public static LocalDate parseDate(String isoDate) {
         try {
-            return LocalDate.parse(recordDate);
+            return LocalDate.parse(isoDate);
         } catch (DateTimeParseException e) {
-            throw new InvalidRequestException("Invalid record_date value from Treasury API");
+            throw new InvalidRequestException("Invalid date value from Treasury API: " + isoDate);
         }
     }
 
@@ -90,5 +97,6 @@ public class TreasuryApiClient {
     public record TreasuryRateRow(
             @JsonProperty("country_currency_desc") String countryCurrencyDesc,
             @JsonProperty("exchange_rate") String exchangeRate,
-            @JsonProperty("record_date") String recordDate) {}
+            @JsonProperty("record_date") String recordDate,
+            @JsonProperty("effective_date") String effectiveDate) {}
 }

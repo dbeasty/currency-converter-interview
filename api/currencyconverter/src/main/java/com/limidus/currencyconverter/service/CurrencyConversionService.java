@@ -2,13 +2,17 @@ package com.limidus.currencyconverter.service;
 
 import com.limidus.currencyconverter.client.TreasuryApiClient;
 import com.limidus.currencyconverter.domain.ConversionRecord;
+import com.limidus.currencyconverter.domain.ExchangeRate;
 import com.limidus.currencyconverter.domain.Transaction;
 import com.limidus.currencyconverter.dto.ConvertedTransactionResponse;
 import com.limidus.currencyconverter.exception.InvalidRequestException;
 import com.limidus.currencyconverter.repository.ConversionRepository;
+import com.limidus.currencyconverter.repository.ExchangeRateRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,14 +25,17 @@ public class CurrencyConversionService {
 
     private final TransactionService transactionService;
     private final ExchangeRateService exchangeRateService;
+    private final ExchangeRateRepository exchangeRateRepository;
     private final ConversionRepository conversionRepository;
 
     public CurrencyConversionService(
             TransactionService transactionService,
             ExchangeRateService exchangeRateService,
+            ExchangeRateRepository exchangeRateRepository,
             ConversionRepository conversionRepository) {
         this.transactionService = transactionService;
         this.exchangeRateService = exchangeRateService;
+        this.exchangeRateRepository = exchangeRateRepository;
         this.conversionRepository = conversionRepository;
     }
 
@@ -41,11 +48,21 @@ public class CurrencyConversionService {
         Transaction transaction = transactionService.getById(transactionId);
 
         var rateRow = exchangeRateService
-                .findBestRate(countryCurrencyDesc, transaction.getTransactionDate())
+                .findMostRecentRate(countryCurrencyDesc, transaction.getTransactionDate())
                 .orElseThrow(() -> new InvalidRequestException(CONVERSION_UNAVAILABLE));
 
+        LocalDate rateEffectiveDate = TreasuryApiClient.parseDate(rateRow.effectiveDate());
         BigDecimal exchangeRateUsed =
                 TreasuryApiClient.parseExchangeRate(rateRow.exchangeRate()).setScale(6, RoundingMode.HALF_UP);
+
+        ExchangeRate exchangeRateEntity = exchangeRateRepository
+                .findByCurrencyAndEffectiveDate(countryCurrencyDesc, rateEffectiveDate)
+                .orElseGet(() -> exchangeRateRepository.save(ExchangeRate.builder()
+                        .currency(countryCurrencyDesc)
+                        .rate(exchangeRateUsed)
+                        .effectiveDate(rateEffectiveDate)
+                        .sourceTimestamp(Instant.now())
+                        .build()));
 
         BigDecimal convertedAmount = transaction
                 .getAmountUsd()
@@ -54,10 +71,11 @@ public class CurrencyConversionService {
 
         ConversionRecord record = ConversionRecord.builder()
                 .transactionId(transaction.getId())
-                .currency(countryCurrencyDesc)
+                .exchangeRateId(exchangeRateEntity.getId())
+                .exchangeRateEffectiveDate(rateEffectiveDate)
                 .exchangeRateUsed(exchangeRateUsed)
                 .convertedAmount(convertedAmount)
-                .conversionTimestamp(LocalDateTime.now())
+                .conversionTimestamp(Instant.now())
                 .build();
         conversionRepository.save(record);
 
@@ -68,6 +86,8 @@ public class CurrencyConversionService {
                 .purchaseAmountUsd(transaction.getAmountUsd())
                 .countryCurrencyDesc(countryCurrencyDesc)
                 .exchangeRateUsed(exchangeRateUsed)
+                .exchangeRateDate(rateEffectiveDate)
+                .exchangeRateAgeDays(ChronoUnit.DAYS.between(rateEffectiveDate, transaction.getTransactionDate()))
                 .convertedAmount(convertedAmount)
                 .build();
     }

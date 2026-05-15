@@ -13,6 +13,18 @@ spring:
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.yaml
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: always
+
 app:
   treasury:
     base-url: https://api.fiscaldata.treasury.gov/services/api/fiscal_service
+    # Treasury publishes in Eastern Time; cache keys use this zone so a miss
+    # does not fire before Treasury has actually released data for the day.
+    timezone: America/New_York

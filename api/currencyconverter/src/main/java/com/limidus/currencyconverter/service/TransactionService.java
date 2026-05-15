@@ -8,7 +8,7 @@ import com.limidus.currencyconverter.exception.NotFoundException;
 import com.limidus.currencyconverter.repository.TransactionRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,7 +33,7 @@ public class TransactionService {
                 .description(request.getDescription())
                 .transactionDate(request.getTransactionDate())
                 .amountUsd(amountUsd)
-                .createdAt(LocalDateTime.now())
+                .createdAt(Instant.now())
                 .build();
 
         Transaction saved = transactionRepository.save(entity);

@@ -7,7 +7,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -31,9 +32,15 @@ public class ConversionRecord {
     @Column(name = "transaction_id", nullable = false)
     private UUID transactionId;
 
-    @Column(nullable = false, length = 255)
-    private String currency;
+    /** FK to exchange_rates.id — stored as a plain UUID for auditing; no JPA join loaded. */
+    @Column(name = "exchange_rate_id", nullable = false)
+    private UUID exchangeRateId;
 
+    /** Snapshot of the Treasury effective_date for the rate row applied at conversion time. */
+    @Column(name = "exchange_rate_effective_date", nullable = false)
+    private LocalDate exchangeRateEffectiveDate;
+
+    /** Snapshot: the actual rate value applied at conversion time. */
     @Column(name = "exchange_rate_used", nullable = false, precision = 19, scale = 6)
     private BigDecimal exchangeRateUsed;
 
@@ -41,5 +48,5 @@ public class ConversionRecord {
     private BigDecimal convertedAmount;
 
     @Column(name = "conversion_timestamp")
-    private LocalDateTime conversionTimestamp;
+    private Instant conversionTimestamp;
 }

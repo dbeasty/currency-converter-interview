@@ -5,7 +5,7 @@ plugins {
 }
 
 group = 'com.limidus'
-version = '0.0.1-SNAPSHOT'
+version = '1.0.0'
 
 java {
 	toolchain {
@@ -38,6 +38,34 @@ dependencies {
 	testCompileOnly 'org.projectlombok:lombok'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	testAnnotationProcessor 'org.projectlombok:lombok'
+}
+
+// Capture git metadata at build time using the local git CLI.
+// This avoids third-party plugins that have known Java 21 compatibility issues.
+def gitExec = { String cmd ->
+	try {
+		def proc = cmd.execute([], rootDir)
+		proc.waitFor()
+		return proc.exitValue() == 0 ? proc.text.trim() : 'unknown'
+	} catch (ignored) {
+		return 'unknown'
+	}
+}
+
+def gitCommitFull  = gitExec('git rev-parse HEAD')
+def gitCommitShort = gitExec('git rev-parse --short HEAD')
+def gitBranch      = gitExec('git rev-parse --abbrev-ref HEAD')
+
+springBoot {
+	buildInfo {
+		properties {
+			additional = [
+				'git.commit'      : gitCommitFull,
+				'git.commit.short': gitCommitShort,
+				'git.branch'      : gitBranch
+			]
+		}
+	}
 }
 
 tasks.named('test') {
