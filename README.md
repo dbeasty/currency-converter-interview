@@ -4,6 +4,19 @@ A Spring Boot service that stores USD purchase transactions and converts them to
 
 ---
 
+## Requirements Summary
+
+- Stores purchase transactions with `description`, `transactionDate`, and `purchaseAmountUsd`.
+- Validates required fields, enforces description max length (50), and ensures purchase amount is positive and rounded to cents.
+- Persists each purchase with a unique identifier.
+- Retrieves stored purchases converted to a requested Treasury currency (`country_currency_desc`).
+- Selects the most recent Treasury rate with `effective_date <= transactionDate` and within the prior 6 months.
+- Returns an error when no qualifying exchange rate exists within that 6-month window.
+- Rounds converted purchase amounts to two decimal places.
+- Supports production-style usage via embedded app server, Dockerized local stack, and automated tests. See [docs/docker.md](docs/docker.md) and [docs/testing.md](docs/testing.md).
+
+---
+
 ## How to run
 
 There are two supported ways to run the application:
@@ -101,3 +114,11 @@ The API listens on **http://localhost:8080**. Transaction endpoints require a JW
 | [Docker Setup](docs/docker.md) | Compose services, Vault, credentials, health checks |
 | [Security](docs/security.md) | JWT client-credentials auth, HashiCorp Vault, HTTPS requirements |
 | [Testing](docs/testing.md) | JVM, Python integration, Locust; Docker `tests` service; `start.sh` / `start.bat` |
+
+---
+
+## Usage and Liability Disclaimer
+
+This project is licensed under the [MIT License](LICENSE). You are free to use, copy, modify, and redistribute all or part of this code for personal or commercial purposes.
+
+This project is provided "as is", without warranty of any kind, express or implied. The author is not liable for any claim, damages, or other liability arising from or related to the use of this software.
