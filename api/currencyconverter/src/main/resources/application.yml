@@ -1,13 +1,10 @@
 spring:
   application:
     name: currency-converter
-  datasource:
-    url: jdbc:postgresql://localhost:5432/currencyconverter
-    driverClassName: org.postgresql.Driver
-    username: ccuser
-    password: changeme
+  profiles:
+    # Local dev + optional Vault: see application-local.yml
+    default: local
   jpa:
-    database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
       ddl-auto: validate
   liquibase:
@@ -33,20 +30,6 @@ management:
       show-details: always
 
 app:
-  security:
-    # HS256 signing secret — must be ≥32 bytes. Override in production:
-    #   export APP_SECURITY_JWT_SECRET=<your-256-bit-secret>
-    jwt-secret: "change-me-in-production-must-be-at-least-32-chars!!"
-    # Issued token lifetime in seconds (default: 1 hour)
-    jwt-expiry-seconds: 3600
-    # Registered API clients. Each client exchanges clientId + clientSecret
-    # for a short-lived JWT via POST /auth/token.
-    # In production, store secrets in a secrets manager, not here.
-    clients:
-      - client-id: default-client
-        client-secret: change-me-secret
-      - client-id: admin-client
-        client-secret: change-me-admin-secret
   treasury:
     base-url: https://api.fiscaldata.treasury.gov/services/api/fiscal_service
     # Treasury publishes in Eastern Time; cache keys use this zone so a miss

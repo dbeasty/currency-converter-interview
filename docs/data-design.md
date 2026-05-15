@@ -50,7 +50,10 @@ A local cache of rates fetched from the Treasury Fiscal Data API. Each row repre
 
 ### `conversion_records`
 
-An immutable audit log. Every time a `GET /transactions/{id}` call successfully produces a converted amount, a new row is written here. This preserves the full history of what rate was used for each conversion.
+An immutable audit log. Every time a `GET /transactions/{id}` call successfully produces a converted amount, a new row is written here.
+
+**Why store the rate on the conversion row?**  
+`exchange_rates` is a living cache: rows are upserted when Treasury data is refreshed, and operational fixes could in principle change stored values. The conversion record therefore keeps a **point-in-time snapshot** of the rate and effective date that were actually applied (`exchange_rate_used`, `exchange_rate_effective_date`), plus a FK to `exchange_rates` for traceability. That gives a durable **history of what happened** for each conversion—reports, disputes, and replays can see the exact inputs that produced `converted_amount` without depending on the current state of the rate table.
 
 | Column | Type | Nullable | Notes |
 |--------|------|----------|-------|

@@ -1,0 +1,39 @@
+# Profile: local — default for ./gradlew bootRun (see spring.profiles.default in application.yml).
+# Optional HashiCorp Vault (KV v2): if reachable, secrets override the defaults below.
+#
+# Example:
+#   export VAULT_ADDR=http://127.0.0.1:8200
+#   export VAULT_TOKEN=dev-root-token
+#   vault kv put secret/currency-converter \
+#     spring.datasource.password='realpassword' \
+#     app.security.jwt-secret='change-me-in-production-must-be-at-least-32-chars!!'
+spring:
+  config:
+    import: optional:vault://
+  datasource:
+    url: jdbc:postgresql://localhost:5432/currencyconverter
+    driverClassName: org.postgresql.Driver
+    username: ccuser
+    password: changeme
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+  cloud:
+    vault:
+      uri: ${VAULT_ADDR:http://127.0.0.1:8200}
+      authentication: TOKEN
+      token: ${VAULT_TOKEN:}
+      kv:
+        enabled: true
+        backend: secret
+        default-context: application
+      fail-fast: false
+
+app:
+  security:
+    jwt-secret: "change-me-in-production-must-be-at-least-32-chars!!"
+    jwt-expiry-seconds: 3600
+    clients:
+      - client-id: default-client
+        client-secret: change-me-secret
+      - client-id: admin-client
+        client-secret: change-me-admin-secret

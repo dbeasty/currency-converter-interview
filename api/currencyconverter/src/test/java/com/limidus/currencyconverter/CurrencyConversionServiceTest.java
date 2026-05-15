@@ -67,6 +67,22 @@ class CurrencyConversionServiceTest {
     }
 
     @Test
+    void convert_blankCurrency_throws() {
+        UUID id = UUID.randomUUID();
+        assertThatThrownBy(() -> currencyConversionService.getConvertedPurchase(id, "  "))
+                .isInstanceOf(InvalidRequestException.class)
+                .hasMessageContaining("countryCurrencyDesc");
+    }
+
+    @Test
+    void convert_nullCurrency_throws() {
+        UUID id = UUID.randomUUID();
+        assertThatThrownBy(() -> currencyConversionService.getConvertedPurchase(id, null))
+                .isInstanceOf(InvalidRequestException.class)
+                .hasMessageContaining("countryCurrencyDesc");
+    }
+
+    @Test
     void convert_whenNoRate_throwsWithSpecMessage() {
         UUID id = UUID.randomUUID();
         var tx = Transaction.builder()

@@ -9,23 +9,35 @@ specified country's currency using live rates from the
 ## Prerequisites
 
 - Java 21+
-- **PostgreSQL** on `localhost` matching `application.yml`, **or** run with profile **`h2`** for in-memory H2 (see [java-app.md](../../docs/java-app.md#running-the-application))
+- **PostgreSQL** on `localhost` matching `application-local.yml`, **or** run with profile **`h2`** for in-memory H2 (see [java-app.md](../../docs/java-app.md#running-the-application))
 
 ---
 
 ## Running locally
 
-Default config expects PostgreSQL. For zero-setup in-memory H2:
+The default profile is **`local`** (`spring.profiles.default` in `application.yml`): PostgreSQL on localhost, dev JWT/API client secrets, and **optional** HashiCorp Vault (`optional:vault://`) so startup still works if Vault is down.
+
+Zero-setup in-memory H2 (no Postgres):
 
 ```bash
 ./gradlew bootRun --args='--spring.profiles.active=h2'
 ```
 
-With a local DB that matches `spring.datasource.*` in `application.yml`:
+With a local Postgres DB matching `spring.datasource.*` in `application-local.yml`:
 
 ```bash
 ./gradlew bootRun
 ```
+
+**Release profile** (Vault required — no dev defaults for DB or JWT; configure KV at `secret/data/currency-converter`):
+
+```bash
+export VAULT_ADDR=https://vault.example.com
+export VAULT_TOKEN=…   # or use APPROLE / KUBERNETES auth in application-release.yml
+./gradlew bootRun --args='--spring.profiles.active=release'
+```
+
+PostgreSQL does not talk to Vault directly; the JVM loads secrets from Vault (or a sidecar) into `spring.datasource.*` and `app.security.*` before opening JDBC connections.
 
 The application starts on **http://localhost:8080**.
 
@@ -129,12 +141,15 @@ GET /version
 
 ## Docker
 
-To run with a Postgres database using Docker Compose (from the repo root):
+To run the full stack with Docker Compose (from the repo root): Vault seeds KV secrets, PostgreSQL stores data, and the API runs with profile **`release`** (required Vault import).
 
 ```bash
+cp .env.example .env   # if needed
 ./gradlew bootJar
 docker compose up --build
 ```
+
+Copy [`.env.example`](../../.env.example) for `POSTGRES_*` and `VAULT_TOKEN`. The `vault-init` service writes `secret/currency-converter`; the API loads datasource and `app.security.*` from Vault.
 
 See [docs/docker.md](../../docs/docker.md) for details.
 

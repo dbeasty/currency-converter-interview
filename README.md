@@ -12,7 +12,7 @@ A Spring Boot service that stores USD purchase transactions and converts them to
 | [Data Design](docs/data-design.md) | Database schema, tables, relationships, indexes, migration history |
 | [Service Design](docs/service-design.md) | API endpoints, request/response contracts, validation rules, error handling |
 | [Java Application](docs/java-app.md) | Package structure, layer responsibilities, caching, date handling, configuration |
-| [Docker Setup](docs/docker.md) | Running the stack locally, credentials, Vault migration path |
+| [Docker Setup](docs/docker.md) | Running the stack locally, Vault, credentials |
 | [Testing](docs/testing.md) | JVM, Python integration, Locust; Docker `tests` service; `start.sh --test` / `--perf` |
 
 ---
@@ -22,7 +22,7 @@ A Spring Boot service that stores USD purchase transactions and converts them to
 Make sure Docker Desktop is running, then from the repo root:
 
 ```bash
-# Full stack — builds the JAR, starts api + db
+# Full stack — builds the JAR, starts vault + db + api
 ./scripts/start.sh
 
 # Database only

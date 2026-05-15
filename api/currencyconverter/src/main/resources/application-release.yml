@@ -1,0 +1,25 @@
+# Profile: release — production-style: Vault is required (no optional import).
+# Put all sensitive keys in KV v2, e.g. path secret/data/currency-converter for this app name:
+#   spring.datasource.url, spring.datasource.username, spring.datasource.password
+#   app.security.jwt-secret, app.security.clients (as supported keys / JSON per your ops)
+#
+# Required env (typical):
+#   VAULT_ADDR, VAULT_TOKEN   — or switch spring.cloud.vault.authentication (e.g. KUBERNETES, APPROLE)
+spring:
+  config:
+    import: vault://
+  cloud:
+    vault:
+      uri: ${VAULT_ADDR}
+      authentication: TOKEN
+      token: ${VAULT_TOKEN}
+      kv:
+        enabled: true
+        backend: secret
+        default-context: application
+      fail-fast: true
+
+management:
+  endpoint:
+    health:
+      show-details: when_authorized

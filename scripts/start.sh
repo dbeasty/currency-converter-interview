@@ -67,6 +67,6 @@ elif [ "$RUN_PERF" = true ]; then
     bash performance_tests/run_perf.sh
 
 else
-  log "Starting full stack (api + db)..."
+  log "Starting full stack (vault + db + api)..."
   docker compose -f "$REPO_ROOT/docker-compose.yml" up --build $DETACH_FLAG
 fi

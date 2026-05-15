@@ -27,7 +27,7 @@ The app listens on **port 8080** unless you set `server.port`.
 
 ### Default datasource (PostgreSQL)
 
-`application.yml` points at a local PostgreSQL instance (`jdbc:postgresql://localhost:5432/currencyconverter` with user `ccuser`). If that database is not running, the app will fail to start unless you switch to H2.
+With the default Spring profile **`local`** (`spring.profiles.default` in `application.yml`), `application-local.yml` points at a local PostgreSQL instance (`jdbc:postgresql://localhost:5432/currencyconverter` with user `ccuser`). If that database is not running, the app will fail to start unless you switch to H2.
 
 ### PostgreSQL in Docker (DB only, app on the host)
 
@@ -37,7 +37,7 @@ You can run **only** the database container and keep using `./gradlew bootRun` o
 docker compose -f docker-compose.db.yml up -d
 ```
 
-That publishes **5432** on `localhost`, matching the JDBC URL in `application.yml`. Ensure `.env` defines `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD` consistent with `spring.datasource.*` (the same values as in [docker.md](docker.md#credentials) work: `currencyconverter` / `ccuser` / `changeme`).
+That publishes **5432** on `localhost`, matching the JDBC URL in `application-local.yml`. Ensure `.env` defines `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD` consistent with `spring.datasource.*` (the same values as in [docker.md](docker.md#credentials) work: `currencyconverter` / `ccuser` / `changeme`).
 
 Then start the API from `api/currencyconverter`:
 
@@ -225,7 +225,9 @@ See [`TREASURY_SERVICE.md`](../api/currencyconverter/TREASURY_SERVICE.md) for th
 
 | File | Role |
 |------|------|
-| `src/main/resources/application.yml` | Baseline: PostgreSQL datasource, JPA, Liquibase, logging, Actuator, `app.security.*`, `app.treasury.*` |
+| `src/main/resources/application.yml` | Shared baseline: profile default (`local`), JPA/Liquibase, logging, Actuator, `app.treasury.*` (no datasource or security secrets here) |
+| `src/main/resources/application-local.yml` | Profile **`local`**: PostgreSQL datasource defaults, dev `app.security.*`, optional HashiCorp Vault (`optional:vault://`) |
+| `src/main/resources/application-release.yml` | Profile **`release`**: Vault **required** (`vault://`); supply DB and secrets via KV (e.g. `secret/data/currency-converter`); tighter health details |
 | `src/main/resources/application-h2.yml` | Loaded when Spring profile **`h2`** is active: in-memory H2 datasource, H2 dialect, **H2 console enabled** |
 
 There is no `application.properties` in this module; YAML is the single source. You can still override any key with external `.properties` or environment variables using [Spring Boot relaxed binding](https://docs.spring.io/spring-boot/reference/features/external-config.html) (for example `SPRING_DATASOURCE_URL`, `SPRING_PROFILES_ACTIVE`, `APP_TREASURY_BULK_LOAD_ENABLED`).
@@ -237,11 +239,11 @@ In Docker, Compose injects `SPRING_DATASOURCE_*` and related variables so the `a
 | Property (YAML) | Default | Description |
 |-----------------|---------|-------------|
 | `spring.application.name` | `currency-converter` | Registered application name |
-| `spring.datasource.url` | `jdbc:postgresql://localhost:5432/currencyconverter` | JDBC URL (overridden by profile `h2` — see below) |
+| `spring.datasource.url` | `jdbc:postgresql://localhost:5432/currencyconverter` | JDBC URL under profile **`local`** (`application-local.yml`; overridden by profile `h2`) |
 | `spring.datasource.driver-class-name` | `org.postgresql.Driver` | JDBC driver (`org.h2.Driver` under profile `h2`) |
 | `spring.datasource.username` | `ccuser` | DB user (`sa` under profile `h2`) |
 | `spring.datasource.password` | `changeme` | DB password (`password` under profile `h2`) |
-| `spring.jpa.database-platform` | `org.hibernate.dialect.PostgreSQLDialect` | Hibernate dialect (`H2Dialect` under profile `h2`) |
+| `spring.jpa.database-platform` | `org.hibernate.dialect.PostgreSQLDialect` | Hibernate dialect under **`local`** (`H2Dialect` under profile `h2`) |
 | `spring.jpa.hibernate.ddl-auto` | `validate` | Hibernate schema mode; Liquibase owns DDL |
 | `spring.liquibase.change-log` | `classpath:db/changelog/db.changelog-master.yaml` | Liquibase master changelog |
 | `spring.devtools.livereload.enabled` | `false` | Disable DevTools live reload |
@@ -269,13 +271,13 @@ In Docker, Compose injects `SPRING_DATASOURCE_*` and related variables so the `a
 | Property | Default | Description |
 |----------|---------|-------------|
 | `management.endpoints.web.exposure.include` | `health` | Only the health endpoint is exposed over HTTP |
-| `management.endpoint.health.show-details` | `always` | Health JSON includes full detail |
+| `management.endpoint.health.show-details` | `always` | Health JSON includes full detail (`when_authorized` under profile **`release`**) |
 
 ### Application security (`app.security.*`)
 
 | Property | Default | Description |
 |----------|---------|-------------|
-| `app.security.jwt-secret` | *(see `application.yml` — dev placeholder)* | HS256 signing secret; **must be at least 32 bytes** in production. Override with `APP_SECURITY_JWT_SECRET` (or equivalent env). |
+| `app.security.jwt-secret` | *(see `application-local.yml` — dev placeholder)* | HS256 signing secret; **must be at least 32 bytes** in production. Override with `APP_SECURITY_JWT_SECRET` (or equivalent env). |
 | `app.security.jwt-expiry-seconds` | `3600` | Access token lifetime in seconds |
 | `app.security.clients` | Two in-repo dev clients | List of `{ client-id, client-secret }` pairs used by `POST /auth/token`. Prefer a secrets manager in production; nested lists are easiest to maintain in YAML. |
 
