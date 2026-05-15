@@ -9,6 +9,45 @@ dataset, accessed via the
 
 ---
 
+## Known Limitations and Production Suitability
+
+The Treasury Reporting Rates of Exchange API is a **government fiscal reporting dataset**, not a financial market data feed. This distinction has significant consequences for any system that needs accurate, current exchange rates.
+
+### Publication frequency
+
+Treasury publishes rates on a **quarterly basis** (March 31, June 30, September 30, December 31), with occasional mid-quarter amendments for highly volatile currencies. This means a rate in this dataset can be up to **three months old** for most currencies at any given time.
+
+This is fundamentally unsuitable for day-to-day currency conversion where intraday or even daily swings matter:
+
+- A rate published on March 31 may be used for a purchase made on June 29 — nearly 90 days later.
+- For currencies like Argentine Peso or Turkish Lira, which can move 10–30 % in a single month, the applied rate may be significantly different from the actual market rate on the purchase date.
+
+### No intraday or daily rates
+
+The dataset has no concept of intraday rates. Even with mid-quarter amendments, the finest granularity is a single rate per currency per amendment event — not a daily close, bid/ask spread, or real-time tick.
+
+### Ambiguous update timing
+
+There is no guaranteed publish time within a day. The application's cache key uses today's date in Eastern Time to trigger a daily miss, but Treasury does not commit to publishing new data at a specific time. An amendment published at 4 PM ET would not be picked up until the next day's cache miss if today's rate was already cached.
+
+### Scope: intended use case for this API
+
+The Treasury API is designed for **US federal government accounting and reporting purposes** — specifically for agencies converting foreign currency expenditures for budget reporting. It is not designed as a financial exchange rate service.
+
+### What this means for this application
+
+This application satisfies the stated interview requirements precisely — those requirements explicitly reference the Treasury Reporting Rates of Exchange API and its 6-month window rule. The implementation is correct within those constraints.
+
+However, **this should not be used as the basis for a production-quality currency conversion system** in any context where:
+
+- Rate accuracy within days or weeks matters
+- High-volatility currencies (Argentina, Turkey, Egypt, Nigeria, etc.) are involved
+- Financial or legal obligations depend on the converted amount
+
+For production use, replace `TreasuryApiClient` with a feed from a commercial provider (e.g. Open Exchange Rates, Fixer.io, XE, or a financial data platform) that publishes daily or intraday rates. The three-layer caching architecture and `ExchangeRateService` interface are designed to accommodate this without changes to the rest of the codebase.
+
+---
+
 ## Why we filter and sort by `effective_date`, not `record_date`
 
 ### What the two date fields mean
