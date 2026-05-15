@@ -10,7 +10,7 @@ The core stack is orchestrated by Docker Compose: **Vault** (secrets), **Postgre
 | `db` | Built from `docker/Dockerfile.postgres` (Vault REST → `POSTGRES_*`) | 5432 |
 | `tests` | `api/currencyconverter/Dockerfile.tests` | (host ports only when published, e.g. Locust 8089) |
 
-**Startup order:** `vault` → `vault-init` (seeds KV) → `db` (healthy) → `api` (reads secrets from Vault with profile `release`).
+**Startup order:** `vault` → `vault-init` (seeds KV) → `db` (healthy) → `api` (healthy, reads secrets from Vault with profile `release`) → `tests` (optional, waits for healthy `api`).
 
 ## Prerequisites
 
@@ -70,7 +70,7 @@ docker compose up --build
 docker compose -f docker-compose.db.yml up
 ```
 
-The `api` service waits for `vault-init` to finish and PostgreSQL to pass its health check before starting. Liquibase runs migrations automatically on first boot.
+The `api` service waits for `vault-init` to finish and PostgreSQL to pass its health check before starting. Liquibase runs migrations automatically on first boot. Once up, Compose polls `GET /actuator/health` until the JVM reports `UP` (see [Health checks and restart](#health-checks-and-restart) below).
 
 **3. Verify**
 
@@ -118,6 +118,37 @@ vault kv get secret/currency-converter
 
 ---
 
+## Health checks and restart
+
+Compose health checks let dependent services wait for readiness and give you visibility in `docker compose ps`.
+
+| Service | Probe | Restart |
+|---------|--------|---------|
+| `vault` | `vault status` | Default (no auto-restart) |
+| `db` | `pg_isready -U ccuser -d currencyconverter` | Default |
+| **`api`** | `wget` → `http://127.0.0.1:8080/actuator/health`, expects `"status":"UP"` | **`unless-stopped`** |
+
+### `api` health check
+
+Configured in [`docker-compose.yml`](../docker-compose.yml):
+
+- **`start_period: 60s`** — grace time for Vault, JDBC, and Liquibase on first boot
+- **`interval: 10s`**, **`retries: 5`** — marks the container **unhealthy** if probes keep failing
+- The API image installs `wget` in [`api/currencyconverter/Dockerfile`](../api/currencyconverter/Dockerfile) for the probe (`/actuator/health` is public; no JWT required)
+
+### `api` restart policy
+
+**`restart: unless-stopped`** — Docker restarts the container if the **Java process exits** (crash, OOM kill, etc.). It does **not** automatically restart a hung JVM that stays running but fails health checks; failed checks mainly affect Compose **health status** and services that `depend_on: condition: service_healthy` (e.g. **`tests`**).
+
+To inspect health:
+
+```bash
+docker compose ps
+docker inspect --format='{{.State.Health.Status}}' currency-converter-interview-api-1
+```
+
+---
+
 ## Container details
 
 ### `vault`
@@ -132,11 +163,12 @@ vault kv get secret/currency-converter
 
 ### `api`
 
-- Base image: `eclipse-temurin:21-jre-alpine`
+- Base image: `eclipse-temurin:21-jre-alpine` (+ `wget` for health probes)
 - Copies `build/libs/currencyconverter-0.0.1-SNAPSHOT.jar` → `/app/app.jar`
 - Profile **`release`**: required Vault import; datasource and security from KV
 - H2 console is explicitly disabled (`SPRING_H2_CONSOLE_ENABLED=false`)
 - Liquibase applies all pending changesets against PostgreSQL on startup
+- **Health check:** `GET /actuator/health` every 10 s; **restart:** `unless-stopped` on process exit
 
 ### `db`
 
@@ -148,7 +180,7 @@ vault kv get secret/currency-converter
 
 ### `tests`
 
-Python 3.12 image with `integration_tests/` and `performance_tests/` (Locust). Opt in with Compose profile **`tests`**; targets `http://api:8080` on the project network. Commands, `run` vs `exec`, and port **8089** for the Locust UI are in **[testing.md](testing.md)**.
+Python 3.12 image with `integration_tests/` and `performance_tests/` (Locust). Opt in with Compose profile **`tests`**; targets `http://api:8080` on the project network. Waits for **`api`** to be **healthy** before starting. Commands, `run` vs `exec`, and port **8089** for the Locust UI are in **[testing.md](testing.md)**.
 
 ---
 

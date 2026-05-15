@@ -61,6 +61,13 @@ services:
       SPRING_H2_CONSOLE_ENABLED: "false"
     ports:
       - "8080:8080"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/actuator/health | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
     depends_on:
       vault-init:
         condition: service_completed_successfully
@@ -78,7 +85,7 @@ services:
       PERF_BASE_URL: http://api:8080
     depends_on:
       api:
-        condition: service_started
+        condition: service_healthy
     # Keeps the container up so you can: docker compose exec -it tests bash
     command: ["sleep", "infinity"]
     # One-off runs override this command, e.g. integration tests:

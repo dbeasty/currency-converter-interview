@@ -13,6 +13,7 @@ A Spring Boot service that stores USD purchase transactions and converts them to
 | [Service Design](docs/service-design.md) | API endpoints, request/response contracts, validation rules, error handling |
 | [Java Application](docs/java-app.md) | Package structure, layer responsibilities, caching, date handling, configuration |
 | [Docker Setup](docs/docker.md) | Running the stack locally, Vault, credentials |
+| [Security](docs/security.md) | JWT client-credentials auth, HashiCorp Vault, HTTPS requirements |
 | [Testing](docs/testing.md) | JVM, Python integration, Locust; Docker `tests` service; `start.sh --test` / `--perf` |
 
 ---
