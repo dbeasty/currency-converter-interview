@@ -1,5 +1,7 @@
 # Python integration tests (stdlib only)
 
+Project-wide testing (Docker, `start.sh`, Locust): **[docs/testing.md](../../../docs/testing.md)**.
+
 These tests call the running Spring Boot app over HTTP. No third-party packages are required (`urllib` + `json` + `unittest`).
 
 Shared HTTP helpers live in [`http_client.py`](http_client.py) and are reused by the **manual CLI** ([`cli.py`](cli.py)).

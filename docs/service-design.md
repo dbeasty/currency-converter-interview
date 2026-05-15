@@ -163,4 +163,4 @@ This is a **read-only, unauthenticated public API**. The service caches results 
 | API integration (Python) | Python `unittest` + `urllib` | `api/currencyconverter/integration_tests/` |
 | Performance / load | Locust | `api/currencyconverter/performance_tests/` |
 
-See [docker.md](docker.md#test-container) for running the Python tests in Docker.
+How to run each layer (Gradle, Docker `tests` service, `start.sh`, Locust UI) is in **[testing.md](testing.md)**.

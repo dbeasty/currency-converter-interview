@@ -1,11 +1,12 @@
 # Docker Setup
 
-The project runs as two containers orchestrated by Docker Compose:
+The core stack is two containers orchestrated by Docker Compose. A third optional **`tests`** service (Python) runs integration and load tests; see [testing.md](testing.md).
 
 | Service | Image | Port |
 |---------|-------|------|
 | `api` | Built from `api/currencyconverter/Dockerfile` | 8080 |
 | `db` | `postgres:17-alpine` | 5432 |
+| `tests` | `api/currencyconverter/Dockerfile.tests` | (host ports only when published, e.g. Locust 8089) |
 
 ## Prerequisites
 
@@ -25,10 +26,8 @@ The simplest way to run the project is via the provided script from the repo roo
 # Database only — skips the Gradle build, just starts PostgreSQL
 ./scripts/start.sh --db-only
 
-# Start full stack then run integration tests
+# Integration / performance tests (see docs/testing.md)
 ./scripts/start.sh --test
-
-# Start full stack then run headless performance tests (Locust)
 ./scripts/start.sh --perf
 
 # Run in the background (detached)
@@ -45,19 +44,9 @@ The script will:
 
 ## Running manually
 
-If you prefer to run commands yourself:
+If you prefer to run commands yourself, build the JAR first — see [Building](java-app.md#building) in the Java application doc — then:
 
-**1. Build the JAR**
-
-```bash
-cd api/currencyconverter
-./gradlew bootJar
-cd ../..
-```
-
-This produces `api/currencyconverter/build/libs/currencyconverter-0.0.1-SNAPSHOT.jar`, which the Dockerfile copies into the image.
-
-**2. Set up credentials**
+**1. Set up credentials**
 
 The `.env` file at the repo root is git-ignored. Create it (or edit the existing one):
 
@@ -67,7 +56,7 @@ POSTGRES_USER=ccuser
 POSTGRES_PASSWORD=changeme
 ```
 
-**3. Start the stack**
+**2. Start the stack**
 
 ```bash
 # Full stack
@@ -79,7 +68,7 @@ docker compose -f docker-compose.db.yml up
 
 The `api` service waits for PostgreSQL to pass its health check before starting. Liquibase runs migrations automatically on first boot.
 
-**4. Verify**
+**3. Verify**
 
 ```
 GET http://localhost:8080/transactions
@@ -108,41 +97,6 @@ When migrating to Vault, replace the `.env` values with one of:
 
 ---
 
-## Test container
-
-A third image packages both test suites and is built from `api/currencyconverter/Dockerfile.tests`.
-
-| Suite | Command inside container | Needs |
-|-------|--------------------------|-------|
-| Integration tests | `python3 -m unittest integration_tests.test_api -v` (default) | API running |
-| Performance tests (headless) | `bash performance_tests/run_perf.sh` | API running |
-| Performance tests (Locust UI) | `locust -f performance_tests/locustfile.py --host http://api:8080` | API running + port 8089 |
-
-The `tests` service uses a [Compose profile](https://docs.docker.com/compose/profiles/) so it never starts unless you explicitly opt in.
-
-### Via the start script
-
-```bash
-./scripts/start.sh --test   # integration tests
-./scripts/start.sh --perf   # headless Locust run
-```
-
-### Manually
-
-```bash
-# Integration tests
-docker compose --profile tests run --rm tests
-
-# Headless performance tests
-docker compose --profile tests run --rm tests bash performance_tests/run_perf.sh
-
-# Locust interactive UI — open http://localhost:8089
-docker compose --profile tests run --rm -p 8089:8089 tests \
-  locust -f performance_tests/locustfile.py --host http://api:8080
-```
-
----
-
 ## Container details
 
 ### `api`
@@ -160,10 +114,7 @@ docker compose --profile tests run --rm -p 8089:8089 tests \
 
 ### `tests`
 
-- Base image: `python:3.12-slim`
-- Contains `integration_tests/` (stdlib only) and `performance_tests/` (Locust)
-- Activated via `--profile tests` — excluded from `docker compose up` by default
-- Targets the `api` container at `http://api:8080` inside the Docker network
+Python 3.12 image with `integration_tests/` and `performance_tests/` (Locust). Opt in with Compose profile **`tests`**; targets `http://api:8080` on the project network. Commands, `run` vs `exec`, and port **8089** for the Locust UI are in **[testing.md](testing.md)**.
 
 ---
 

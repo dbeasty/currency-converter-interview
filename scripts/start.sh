@@ -55,7 +55,8 @@ elif [ "$RUN_TESTS" = true ]; then
   docker compose -f "$REPO_ROOT/docker-compose.yml" up --build -d
   log "Waiting for API to be ready..."
   sleep 5
-  docker compose -f "$REPO_ROOT/docker-compose.yml" --profile tests run --rm tests
+  docker compose -f "$REPO_ROOT/docker-compose.yml" --profile tests run --rm tests \
+    python3 -m unittest integration_tests.test_api -v
 
 elif [ "$RUN_PERF" = true ]; then
   log "Starting full stack then running performance tests..."

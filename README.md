@@ -13,6 +13,7 @@ A Spring Boot service that stores USD purchase transactions and converts them to
 | [Service Design](docs/service-design.md) | API endpoints, request/response contracts, validation rules, error handling |
 | [Java Application](docs/java-app.md) | Package structure, layer responsibilities, caching, date handling, configuration |
 | [Docker Setup](docs/docker.md) | Running the stack locally, credentials, Vault migration path |
+| [Testing](docs/testing.md) | JVM, Python integration, Locust; Docker `tests` service; `start.sh --test` / `--perf` |
 
 ---
 
@@ -27,10 +28,8 @@ Make sure Docker Desktop is running, then from the repo root:
 # Database only
 ./scripts/start.sh --db-only
 
-# Run integration tests against the full stack
+# Run tests (see docs/testing.md)
 ./scripts/start.sh --test
-
-# Run headless performance tests (Locust)
 ./scripts/start.sh --perf
 
 # Detached (background)

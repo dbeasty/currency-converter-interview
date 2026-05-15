@@ -15,6 +15,87 @@
 
 ---
 
+## Running the application
+
+From `api/currencyconverter`:
+
+```bash
+./gradlew bootRun
+```
+
+The app listens on **port 8080** unless you set `server.port`.
+
+### Default datasource (PostgreSQL)
+
+`application.yml` points at a local PostgreSQL instance (`jdbc:postgresql://localhost:5432/currencyconverter` with user `ccuser`). If that database is not running, the app will fail to start unless you switch to H2.
+
+### PostgreSQL in Docker (DB only, app on the host)
+
+You can run **only** the database container and keep using `./gradlew bootRun` on the host. From the **repository root** (where `.env` and `docker-compose.db.yml` live):
+
+```bash
+docker compose -f docker-compose.db.yml up -d
+```
+
+That publishes **5432** on `localhost`, matching the JDBC URL in `application.yml`. Ensure `.env` defines `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD` consistent with `spring.datasource.*` (the same values as in [docker.md](docker.md#credentials) work: `currencyconverter` / `ccuser` / `changeme`).
+
+Then start the API from `api/currencyconverter`:
+
+```bash
+./gradlew bootRun
+```
+
+Convenience (same Compose file, optional detached mode):
+
+```bash
+./scripts/start.sh --db-only -d
+```
+
+Stop the database when finished:
+
+```bash
+docker compose -f docker-compose.db.yml down
+```
+
+### In-memory H2 (no local Postgres)
+
+Activate the Spring profile **`h2`**. That loads `application-h2.yml`, which overrides the datasource to an in-memory H2 database and **enables the H2 web console**.
+
+```bash
+./gradlew bootRun --args='--spring.profiles.active=h2'
+```
+
+Equivalent:
+
+```bash
+export SPRING_PROFILES_ACTIVE=h2
+./gradlew bootRun
+```
+
+After `./gradlew bootJar`, you can run the same profile on the executable JAR:
+
+```bash
+java -jar build/libs/currencyconverter-1.0.0.jar --spring.profiles.active=h2
+```
+
+(The exact JAR file name matches the `version` property in `build.gradle`.)
+
+### H2 web console
+
+With profile **`h2`** active, Spring Boot enables the console at **http://localhost:8080/h2-console**. Typical login fields:
+
+| Field | Value |
+|-------|--------|
+| JDBC URL | `jdbc:h2:mem:testdb` |
+| User Name | `sa` |
+| Password | `password` |
+
+These match `application-h2.yml`. Liquibase still applies the same changelog to the in-memory database.
+
+**Spring Security:** `SecurityConfig` only permits `/auth/token`, `/actuator/health`, and `/version` without a JWT. The H2 console path (`/h2-console/**`) is **not** opened in code, so the browser UI may return **401** until you add dev-only matchers (or use a desktop H2 client with the JDBC URL above instead of the web UI).
+
+---
+
 ## Package Structure
 
 ```
@@ -140,29 +221,87 @@ See [`TREASURY_SERVICE.md`](../api/currencyconverter/TREASURY_SERVICE.md) for th
 
 ## Configuration
 
-Application config lives in two files that Spring Boot merges (properties wins over YAML for conflicting keys):
+### Files
 
-- `src/main/resources/application.properties` — datasource defaults (H2 for local dev)
-- `src/main/resources/application.yml` — Liquibase, JPA dialect, `app.treasury.*`
+| File | Role |
+|------|------|
+| `src/main/resources/application.yml` | Baseline: PostgreSQL datasource, JPA, Liquibase, logging, Actuator, `app.security.*`, `app.treasury.*` |
+| `src/main/resources/application-h2.yml` | Loaded when Spring profile **`h2`** is active: in-memory H2 datasource, H2 dialect, **H2 console enabled** |
 
-In Docker, `SPRING_DATASOURCE_*` environment variables override the H2 defaults and point at PostgreSQL — no file changes required. See [docker.md](docker.md) for the full environment variable list.
+There is no `application.properties` in this module; YAML is the single source. You can still override any key with external `.properties` or environment variables using [Spring Boot relaxed binding](https://docs.spring.io/spring-boot/reference/features/external-config.html) (for example `SPRING_DATASOURCE_URL`, `SPRING_PROFILES_ACTIVE`, `APP_TREASURY_BULK_LOAD_ENABLED`).
 
-### `app.treasury.*` properties
+In Docker, Compose injects `SPRING_DATASOURCE_*` and related variables so the `api` container uses PostgreSQL — see [docker.md](docker.md).
+
+### Spring Boot (`spring.*`)
+
+| Property (YAML) | Default | Description |
+|-----------------|---------|-------------|
+| `spring.application.name` | `currency-converter` | Registered application name |
+| `spring.datasource.url` | `jdbc:postgresql://localhost:5432/currencyconverter` | JDBC URL (overridden by profile `h2` — see below) |
+| `spring.datasource.driver-class-name` | `org.postgresql.Driver` | JDBC driver (`org.h2.Driver` under profile `h2`) |
+| `spring.datasource.username` | `ccuser` | DB user (`sa` under profile `h2`) |
+| `spring.datasource.password` | `changeme` | DB password (`password` under profile `h2`) |
+| `spring.jpa.database-platform` | `org.hibernate.dialect.PostgreSQLDialect` | Hibernate dialect (`H2Dialect` under profile `h2`) |
+| `spring.jpa.hibernate.ddl-auto` | `validate` | Hibernate schema mode; Liquibase owns DDL |
+| `spring.liquibase.change-log` | `classpath:db/changelog/db.changelog-master.yaml` | Liquibase master changelog |
+| `spring.devtools.livereload.enabled` | `false` | Disable DevTools live reload |
+| `spring.devtools.restart.enabled` | `false` | Disable DevTools classpath restart |
+
+**Profile `h2` only** (`application-h2.yml` replaces the datasource block and adds):
 
 | Property | Default | Description |
 |----------|---------|-------------|
-| `app.treasury.base-url` | `https://api.fiscaldata.treasury.gov/services/api/fiscal_service` | Treasury API base URL |
-| `app.treasury.timezone` | `America/New_York` | IANA timezone for cache key date alignment |
+| `spring.datasource.url` | `jdbc:h2:mem:testdb` | In-memory H2 |
+| `spring.datasource.driver-class-name` | `org.h2.Driver` | H2 driver |
+| `spring.datasource.username` | `sa` | H2 user |
+| `spring.datasource.password` | `password` | H2 password |
+| `spring.jpa.database-platform` | `org.hibernate.dialect.H2Dialect` | H2 Hibernate dialect |
+| `spring.h2.console.enabled` | `true` | Expose **http://localhost:8080/h2-console** |
+
+### Logging (`logging.*`)
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `logging.level.org.springframework.web.servlet.mvc.method.annotation.ExceptionHandlerExceptionResolver` | `ERROR` | Reduces WARN noise from benign 404 paths (e.g. DevTools probes) |
+
+### Actuator (`management.*`)
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `management.endpoints.web.exposure.include` | `health` | Only the health endpoint is exposed over HTTP |
+| `management.endpoint.health.show-details` | `always` | Health JSON includes full detail |
+
+### Application security (`app.security.*`)
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `app.security.jwt-secret` | *(see `application.yml` — dev placeholder)* | HS256 signing secret; **must be at least 32 bytes** in production. Override with `APP_SECURITY_JWT_SECRET` (or equivalent env). |
+| `app.security.jwt-expiry-seconds` | `3600` | Access token lifetime in seconds |
+| `app.security.clients` | Two in-repo dev clients | List of `{ client-id, client-secret }` pairs used by `POST /auth/token`. Prefer a secrets manager in production; nested lists are easiest to maintain in YAML. |
+
+### Treasury integration (`app.treasury.*`)
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `app.treasury.base-url` | `https://api.fiscaldata.treasury.gov/services/api/fiscal_service` | Treasury Fiscal Data API base URL |
+| `app.treasury.timezone` | `America/New_York` | IANA zone for cache keys and bulk-load cron evaluation (Treasury publication calendar) |
+| `app.treasury.bulk-load-enabled` | `false` | When `true`, pre-fetches rates for the current window on startup and on the cron schedule |
+| `app.treasury.bulk-load-cron` | `0 30 9 * * *` | Spring cron expression (evaluated in `app.treasury.timezone`); default once daily at 09:30 ET |
+
+For rate selection and caching behaviour (not separate properties), see [Treasury rate selection](#treasury-rate-selection), [Caching](#caching), and [`TREASURY_SERVICE.md`](../api/currencyconverter/TREASURY_SERVICE.md).
 
 ---
 
 ## Building
 
+If you prefer to run commands yourself:
+
 ```bash
 cd api/currencyconverter
-./gradlew bootJar        # produces build/libs/currencyconverter-0.0.1-SNAPSHOT.jar
-./gradlew test           # runs JUnit tests
+./gradlew bootJar        # JAR under build/libs/ (name matches version in build.gradle)
+./gradlew test           # JUnit tests
 ./gradlew build          # compile + test + jar
+cd ../..
 ```
 
-The `bootJar` output is what the [Dockerfile](../api/currencyconverter/Dockerfile) copies into the `api` container image.
+The [Dockerfile](../api/currencyconverter/Dockerfile) copies the `bootJar` output from `build/libs/` into the `api` container image (see `docker-compose` / CI for the expected file name). For Python integration tests, Locust, and Docker orchestration, see [testing.md](testing.md).

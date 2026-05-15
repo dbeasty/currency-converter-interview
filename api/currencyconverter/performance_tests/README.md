@@ -1,5 +1,7 @@
 # Performance Tests
 
+Project-wide testing (Docker `tests` service, `./scripts/start.sh --perf`): **[docs/testing.md](../../../docs/testing.md)**.
+
 Load and throughput testing for the currency converter API using [Locust](https://locust.io).
 
 ## Setup

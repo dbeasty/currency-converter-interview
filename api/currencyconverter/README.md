@@ -9,11 +9,19 @@ specified country's currency using live rates from the
 ## Prerequisites
 
 - Java 21+
-- No database installation required — uses an embedded H2 database by default
+- **PostgreSQL** on `localhost` matching `application.yml`, **or** run with profile **`h2`** for in-memory H2 (see [java-app.md](../../docs/java-app.md#running-the-application))
 
 ---
 
 ## Running locally
+
+Default config expects PostgreSQL. For zero-setup in-memory H2:
+
+```bash
+./gradlew bootRun --args='--spring.profiles.active=h2'
+```
+
+With a local DB that matches `spring.datasource.*` in `application.yml`:
 
 ```bash
 ./gradlew bootRun
@@ -134,22 +142,17 @@ See [docs/docker.md](../../docs/docker.md) for details.
 
 ## Running tests
 
+See [docs/testing.md](../../docs/testing.md) for JVM, Python integration, and Locust flows. Quick check from this directory:
+
 ```bash
 ./gradlew test
-```
-
-Python integration tests (requires the app to be running):
-
-```bash
-cd integration_tests
-python3 -m unittest test_api -v
 ```
 
 ---
 
 ## Key design decisions
 
-- **H2 in-memory** for zero-setup local development; schema and Java types are fully PostgreSQL-compatible via Liquibase migrations
+- **Profile `h2`** for zero-setup in-memory local development; default `application.yml` targets **PostgreSQL** on `localhost`. Schema and Java types stay aligned via Liquibase migrations
 - **`effective_date` filtering** on the Treasury API rather than `record_date` — ensures mid-quarter amendments for volatile currencies (Argentina, Turkey, etc.) surface correctly
 - **`Instant`** for all audit timestamps (UTC); `LocalDate` for calendar dates (timezone-free)
 - **Caching** of Treasury API responses keyed by currency, purchase date, and today's date in Eastern Time (Treasury's publication timezone) — see [TREASURY_SERVICE.md](TREASURY_SERVICE.md)

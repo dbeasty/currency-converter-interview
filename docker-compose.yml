@@ -47,10 +47,13 @@ services:
     depends_on:
       api:
         condition: service_started
-    # Default runs integration tests. For perf tests override the command:
-    #   docker compose --profile tests run tests bash performance_tests/run_perf.sh
-    # For Locust interactive UI (http://localhost:8089):
-    #   docker compose --profile tests run -p 8089:8089 tests \
+    # Keeps the container up so you can: docker compose exec -it tests bash
+    command: ["sleep", "infinity"]
+    # One-off runs override this command, e.g. integration tests:
+    #   docker compose --profile tests run --rm tests python3 -m unittest integration_tests.test_api -v
+    # Perf: docker compose --profile tests run --rm tests bash performance_tests/run_perf.sh
+    # Locust UI (http://localhost:8089):
+    #   docker compose --profile tests run --rm -p 8089:8089 tests \
     #     locust -f performance_tests/locustfile.py --host http://api:8080
 
 volumes:

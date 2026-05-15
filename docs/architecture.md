@@ -98,4 +98,4 @@ Repo root
     └── start.sh                ← build JAR + start Docker
 ```
 
-See [docker.md](docker.md) for full deployment instructions.
+See [docker.md](docker.md) for full deployment instructions, [data-design.md](data-design.md) for tables, columns, and type decisions, [service-design.md](service-design.md) for HTTP endpoints and request/response behavior, and [testing.md](testing.md) for test tiers and how to run them.
