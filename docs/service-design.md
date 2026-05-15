@@ -37,7 +37,7 @@ Content-Type: application/json
 | Field | Rule |
 |-------|------|
 | `description` | Required; max 50 characters |
-| `transactionDate` | Required; must not be a future date |
+| `transactionDate` | Required; must not be a future date (`@PastOrPresent` — a future date could never have an exchange rate, so this produces a clearer error than waiting for conversion to fail) |
 | `purchaseAmountUsd` | Required; must be positive; stored rounded to 2 decimal places |
 
 **Response — 201 Created**

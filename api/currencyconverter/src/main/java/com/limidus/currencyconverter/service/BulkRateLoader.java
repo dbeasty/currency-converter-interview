@@ -105,10 +105,20 @@ public class BulkRateLoader {
 
         int inserted = 0;
         int updated = 0;
+        int skipped = 0;
         for (TreasuryRateRow row : rows) {
-            LocalDate effectiveDate = TreasuryApiClient.parseDate(row.effectiveDate());
-            BigDecimal rate = TreasuryApiClient.parseExchangeRate(row.exchangeRate())
-                    .setScale(6, RoundingMode.HALF_UP);
+            LocalDate effectiveDate;
+            BigDecimal rate;
+            try {
+                effectiveDate = TreasuryApiClient.parseDate(row.effectiveDate());
+                rate = TreasuryApiClient.parseExchangeRate(row.exchangeRate())
+                        .setScale(6, RoundingMode.HALF_UP);
+            } catch (Exception e) {
+                log.warn("Bulk rate loader: skipping invalid row currency={} rate={} date={}: {}",
+                        row.countryCurrencyDesc(), row.exchangeRate(), row.effectiveDate(), e.getMessage());
+                skipped++;
+                continue;
+            }
             String key = row.countryCurrencyDesc() + "|" + effectiveDate;
 
             ExchangeRate existing_ = existing.get(key);
@@ -129,7 +139,7 @@ public class BulkRateLoader {
             }
         }
 
-        log.info("Bulk rate loader: inserted={}, updated={}, unchanged={}", inserted, updated,
-                rows.size() - inserted - updated);
+        log.info("Bulk rate loader: inserted={}, updated={}, unchanged={}, skipped={}", inserted, updated,
+                rows.size() - inserted - updated - skipped, skipped);
     }
 }

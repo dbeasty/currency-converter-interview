@@ -135,7 +135,12 @@ public class TreasuryApiClient {
 
     public static BigDecimal parseExchangeRate(String exchangeRate) {
         try {
-            return new BigDecimal(exchangeRate);
+            BigDecimal value = new BigDecimal(exchangeRate);
+            if (value.signum() <= 0) {
+                throw new InvalidRequestException(
+                        "Exchange rate from Treasury API must be positive, got: " + exchangeRate);
+            }
+            return value;
         } catch (NumberFormatException e) {
             throw new InvalidRequestException("Invalid exchange_rate value from Treasury API");
         }

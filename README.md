@@ -123,6 +123,14 @@ For more test and validation details, see [docs/testing.md](docs/testing.md).
 
 ---
 
+## AI Assistance
+
+This project was developed using **AI-assisted development** with [Cursor](https://cursor.sh), using planned prompting and technical direction throughout. AI tools assisted with code generation, documentation, architecture design, and test strategy.
+
+All output was reviewed and validated using my own technical expertise, including key design decisions around caching strategy, exchange rate filtering, secrets management, and test coverage.
+
+---
+
 ## Usage and Liability Disclaimer
 
 This project is licensed under the [MIT License](LICENSE). You are free to use, copy, modify, and redistribute all or part of this code for personal or commercial purposes.

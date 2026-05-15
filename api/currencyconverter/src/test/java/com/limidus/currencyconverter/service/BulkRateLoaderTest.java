@@ -3,6 +3,7 @@ package com.limidus.currencyconverter.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -131,5 +132,23 @@ class BulkRateLoaderTest {
         loader.load();
 
         verify(exchangeRateRepository, never()).save(any());
+    }
+
+    @Test
+    void load_skipsInvalidRateRowsAndSavesValidOnes() {
+        LocalDate eff = LocalDate.of(2024, 3, 1);
+        when(treasuryApiClient.fetchAllRatesInWindow(any(), any()))
+                .thenReturn(List.of(
+                        new TreasuryRateRow("Bad-Currency", "0", "2024-03-01", eff.toString()),
+                        new TreasuryRateRow("Also-Bad", "-1.5", "2024-03-01", eff.toString()),
+                        new TreasuryRateRow("Good-Currency", "1.25", "2024-03-01", eff.toString())));
+        when(exchangeRateRepository.findAllInWindow(any())).thenReturn(List.of());
+
+        loader.load();
+
+        ArgumentCaptor<ExchangeRate> cap = ArgumentCaptor.forClass(ExchangeRate.class);
+        verify(exchangeRateRepository, times(1)).save(cap.capture());
+        assertThat(cap.getValue().getCurrency()).isEqualTo("Good-Currency");
+        assertThat(cap.getValue().getRate()).isEqualByComparingTo("1.250000");
     }
 }

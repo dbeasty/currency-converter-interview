@@ -157,6 +157,26 @@ class TreasuryApiClientTest {
     }
 
     @Test
+    void parseExchangeRate_zero_throws() {
+        assertThatThrownBy(() -> TreasuryApiClient.parseExchangeRate("0"))
+                .isInstanceOf(InvalidRequestException.class)
+                .hasMessageContaining("positive");
+    }
+
+    @Test
+    void parseExchangeRate_negative_throws() {
+        assertThatThrownBy(() -> TreasuryApiClient.parseExchangeRate("-1.5"))
+                .isInstanceOf(InvalidRequestException.class)
+                .hasMessageContaining("positive");
+    }
+
+    @Test
+    void parseExchangeRate_valid_returnsValue() {
+        assertThat(TreasuryApiClient.parseExchangeRate("1.25"))
+                .isEqualByComparingTo("1.25");
+    }
+
+    @Test
     void parseDate_invalid_throws() {
         assertThatThrownBy(() -> TreasuryApiClient.parseDate("2024-13-40"))
                 .isInstanceOf(InvalidRequestException.class);
