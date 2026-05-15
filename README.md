@@ -1,10 +1,20 @@
-# currency-converter-interview
+# Currency Converter
 
-A Spring Boot currency conversion service backed by PostgreSQL, with a Docker Compose stack for local development.
+A Spring Boot service that stores USD purchase transactions and converts them to foreign currencies using live rates from the U.S. Treasury Fiscal Data API.
+
+---
 
 ## Documentation
 
-- [Docker Setup](docs/docker.md) — running the full stack locally, credentials, and deploy instructions
+| Document | Description |
+|----------|-------------|
+| [Architecture](docs/architecture.md) | System overview, component diagram, request flow, technology choices |
+| [Data Design](docs/data-design.md) | Database schema, tables, relationships, indexes, migration history |
+| [Service Design](docs/service-design.md) | API endpoints, request/response contracts, validation rules, error handling |
+| [Java Application](docs/java-app.md) | Package structure, layer responsibilities, caching, date handling, configuration |
+| [Docker Setup](docs/docker.md) | Running the stack locally, credentials, Vault migration path |
+
+---
 
 ## Quick Start
 
@@ -17,7 +27,13 @@ Make sure Docker Desktop is running, then from the repo root:
 # Database only
 ./scripts/start.sh --db-only
 
-# Run in the background
+# Run integration tests against the full stack
+./scripts/start.sh --test
+
+# Run headless performance tests (Locust)
+./scripts/start.sh --perf
+
+# Detached (background)
 ./scripts/start.sh -d
 ```
 

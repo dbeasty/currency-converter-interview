@@ -35,5 +35,23 @@ services:
       db:
         condition: service_healthy
 
+  tests:
+    build:
+      context: api/currencyconverter
+      dockerfile: Dockerfile.tests
+    profiles:
+      - tests
+    environment:
+      INTEGRATION_BASE_URL: http://api:8080
+      PERF_BASE_URL: http://api:8080
+    depends_on:
+      api:
+        condition: service_started
+    # Default runs integration tests. For perf tests override the command:
+    #   docker compose --profile tests run tests bash performance_tests/run_perf.sh
+    # For Locust interactive UI (http://localhost:8089):
+    #   docker compose --profile tests run -p 8089:8089 tests \
+    #     locust -f performance_tests/locustfile.py --host http://api:8080
+
 volumes:
   postgres_data:

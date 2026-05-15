@@ -25,6 +25,12 @@ The simplest way to run the project is via the provided script from the repo roo
 # Database only — skips the Gradle build, just starts PostgreSQL
 ./scripts/start.sh --db-only
 
+# Start full stack then run integration tests
+./scripts/start.sh --test
+
+# Start full stack then run headless performance tests (Locust)
+./scripts/start.sh --perf
+
 # Run in the background (detached)
 ./scripts/start.sh -d
 ./scripts/start.sh --db-only -d
@@ -102,6 +108,41 @@ When migrating to Vault, replace the `.env` values with one of:
 
 ---
 
+## Test container
+
+A third image packages both test suites and is built from `api/currencyconverter/Dockerfile.tests`.
+
+| Suite | Command inside container | Needs |
+|-------|--------------------------|-------|
+| Integration tests | `python3 -m unittest integration_tests.test_api -v` (default) | API running |
+| Performance tests (headless) | `bash performance_tests/run_perf.sh` | API running |
+| Performance tests (Locust UI) | `locust -f performance_tests/locustfile.py --host http://api:8080` | API running + port 8089 |
+
+The `tests` service uses a [Compose profile](https://docs.docker.com/compose/profiles/) so it never starts unless you explicitly opt in.
+
+### Via the start script
+
+```bash
+./scripts/start.sh --test   # integration tests
+./scripts/start.sh --perf   # headless Locust run
+```
+
+### Manually
+
+```bash
+# Integration tests
+docker compose --profile tests run --rm tests
+
+# Headless performance tests
+docker compose --profile tests run --rm tests bash performance_tests/run_perf.sh
+
+# Locust interactive UI — open http://localhost:8089
+docker compose --profile tests run --rm -p 8089:8089 tests \
+  locust -f performance_tests/locustfile.py --host http://api:8080
+```
+
+---
+
 ## Container details
 
 ### `api`
@@ -116,6 +157,13 @@ When migrating to Vault, replace the `.env` values with one of:
 - `postgres:17-alpine` with a named volume (`postgres_data`) for persistence
 - Health check: `pg_isready` polled every 10 s — `api` will not start until this passes
 - Port `5432` is exposed to the host in both Compose files
+
+### `tests`
+
+- Base image: `python:3.12-slim`
+- Contains `integration_tests/` (stdlib only) and `performance_tests/` (Locust)
+- Activated via `--profile tests` — excluded from `docker compose up` by default
+- Targets the `api` container at `http://api:8080` inside the Docker network
 
 ---
 
