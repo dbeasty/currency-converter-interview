@@ -12,6 +12,7 @@ import com.limidus.currencyconverter.client.TreasuryApiClient;
 import com.limidus.currencyconverter.client.TreasuryApiClient.TreasuryRateRow;
 import com.limidus.currencyconverter.service.CurrencyConversionService;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 import java.util.UUID;
@@ -200,6 +201,74 @@ class TransactionControllerIntegrationTest {
                         .content(body))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").exists());
+    }
+
+    @Test
+    void getMonthlyReport_returnsTotalsForMonth() throws Exception {
+        createTransaction("Mar A", "2019-03-10", "50.00");
+        createTransaction("Mar B", "2019-03-20", "25.50");
+        createTransaction("Apr", "2019-04-01", "100.00");
+
+        mockMvc.perform(get("/monthly-report")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken)
+                        .param("month", "03-2019"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.month").value("03-2019"))
+                .andExpect(jsonPath("$.transactionCount").value(2))
+                .andExpect(jsonPath("$.totalPurchaseAmountUsd").value(75.5));
+    }
+
+    @Test
+    void getMonthlyReport_emptyMonth_returnsZeros() throws Exception {
+        mockMvc.perform(get("/monthly-report")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken)
+                        .param("month", "01-2020"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.month").value("01-2020"))
+                .andExpect(jsonPath("$.transactionCount").value(0))
+                .andExpect(jsonPath("$.totalPurchaseAmountUsd").value(0));
+    }
+
+    @Test
+    void getMonthlyReport_invalidFormat_returns400() throws Exception {
+        mockMvc.perform(get("/monthly-report")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken)
+                        .param("month", "2024-06"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("month must be MM-YYYY"));
+    }
+
+    @Test
+    void getMonthlyReport_futureMonth_returns400() throws Exception {
+        YearMonth future = YearMonth.now().plusMonths(1);
+        String month = "%02d-%04d".formatted(future.getMonthValue(), future.getYear());
+
+        mockMvc.perform(get("/monthly-report")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken)
+                        .param("month", month))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("month cannot be in the future"));
+    }
+
+    @Test
+    void getMonthlyReport_withoutToken_returnsForbidden() throws Exception {
+        mockMvc.perform(get("/monthly-report").param("month", "06-2024")).andExpect(status().isForbidden());
+    }
+
+    private void createTransaction(String description, String transactionDate, String amount)
+            throws Exception {
+        String body = "{\"description\":\""
+                + description
+                + "\",\"transactionDate\":\""
+                + transactionDate
+                + "\",\"purchaseAmountUsd\":"
+                + amount
+                + "}";
+        mockMvc.perform(post("/transactions")
+                        .header(HttpHeaders.AUTHORIZATION, bearerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isCreated());
     }
 
     @Test

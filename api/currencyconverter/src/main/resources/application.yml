@@ -21,6 +21,7 @@ spring:
 
 logging:
   level:
+    com.limidus.currencyconverter.service: DEBUG
     # Suppress WARN noise from 404s on paths like /inform (DevTools live-reload probe)
     org.springframework.web.servlet.mvc.method.annotation.ExceptionHandlerExceptionResolver: ERROR
 

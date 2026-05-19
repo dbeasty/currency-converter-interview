@@ -2,8 +2,10 @@ package com.limidus.currencyconverter.controller;
 
 import com.limidus.currencyconverter.dto.ConvertedTransactionResponse;
 import com.limidus.currencyconverter.dto.CreateTransactionRequest;
+import com.limidus.currencyconverter.dto.MonthlyReportResponse;
 import com.limidus.currencyconverter.dto.TransactionCreatedResponse;
 import com.limidus.currencyconverter.service.CurrencyConversionService;
+import com.limidus.currencyconverter.service.MonthlyReportService;
 import com.limidus.currencyconverter.service.TransactionService;
 import jakarta.validation.Valid;
 import java.util.UUID;
@@ -21,11 +23,15 @@ public class TransactionController {
 
     private final TransactionService transactionService;
     private final CurrencyConversionService currencyConversionService;
+    private final MonthlyReportService monthlyReportService;
 
     public TransactionController(
-            TransactionService transactionService, CurrencyConversionService currencyConversionService) {
+            TransactionService transactionService,
+            CurrencyConversionService currencyConversionService,
+            MonthlyReportService monthlyReportService) {
         this.transactionService = transactionService;
         this.currencyConversionService = currencyConversionService;
+        this.monthlyReportService = monthlyReportService;
     }
 
     @PostMapping("/transactions")
@@ -39,4 +45,10 @@ public class TransactionController {
             @PathVariable UUID id, @RequestParam String countryCurrencyDesc) {
         return currencyConversionService.getConvertedPurchase(id, countryCurrencyDesc);
     }
+
+    @GetMapping("/monthly-report")
+    public MonthlyReportResponse getMonthlyReport(@RequestParam String month) {
+        return monthlyReportService.getPurchaseTotals(month);
+    }
+
 }
