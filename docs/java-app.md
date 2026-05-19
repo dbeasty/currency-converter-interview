@@ -128,7 +128,7 @@ Conversion rules:
 
 - Uses most recent rate with `effective_date <= transactionDate`
 - Rate must be within 6 months prior to the transaction date
-- Returns `400` if no qualifying rate exists
+- Returns `422` if no qualifying rate exists
 
 ### Operational endpoints
 
@@ -154,8 +154,7 @@ com.limidus.currencyconverter/
 │   ├── CurrencyConversionService.java  Orchestrates conversion: load tx → get rate → persist record
 │   ├── TransactionService.java         CRUD for Transaction entities
 │   ├── ExchangeRateService.java        3-tier rate lookup (cache → DB → Treasury)
-│   ├── TreasuryRateCache.java          @Cacheable wrapper around TreasuryApiClient
-│   ├── ExchangeRateCache.java          DB-level rate lookup and upsert
+│   ├── ExchangeRateCache.java          @Cacheable in-process cache + DB/Treasury load
 │   └── BulkRateLoader.java             Optional startup pre-warm of exchange_rates table
 │
 ├── client/
@@ -179,7 +178,9 @@ com.limidus.currencyconverter/
 │
 ├── exception/
 │   ├── NotFoundException.java          Thrown when a transaction ID is not found (→ 404)
-│   ├── InvalidRequestException.java    Thrown when no qualifying rate exists (→ 422)
+│   ├── ConversionUnavailableException.java  No qualifying rate in 6-month window (→ 422)
+│   ├── ExternalServiceException.java        Treasury / upstream failures (→ 500)
+│   ├── InvalidRequestException.java         Client validation errors (→ 400)
 │   └── GlobalExceptionHandler.java     @RestControllerAdvice; maps exceptions to ErrorResponse
 │
 └── config/
@@ -283,6 +284,8 @@ In Docker, Compose injects `SPRING_DATASOURCE_*` and related variables so the `a
 | Property (YAML) | Default | Description |
 |-----------------|---------|-------------|
 | `spring.application.name` | `currency-converter` | Registered application name |
+| `spring.cache.type` | `caffeine` | In-process cache backend for exchange rates |
+| `spring.cache.caffeine.spec` | `maximumSize=10000,expireAfterWrite=1d` | Max entries and TTL for `treasuryRates` cache |
 | `spring.datasource.url` | `jdbc:postgresql://localhost:5432/currencyconverter` | JDBC URL under profile **`local`** (`application-local.yml`; overridden by profile `h2`) |
 | `spring.datasource.driver-class-name` | `org.postgresql.Driver` | JDBC driver (`org.h2.Driver` under profile `h2`) |
 | `spring.datasource.username` | `ccuser` | DB user (`sa` under profile `h2`) |

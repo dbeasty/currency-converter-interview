@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.slf4j.Logger;
@@ -14,13 +15,14 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.util.UriComponentsBuilder;
 import com.limidus.currencyconverter.config.TreasuryProperties;
-import com.limidus.currencyconverter.exception.InvalidRequestException;
+import com.limidus.currencyconverter.exception.ExternalServiceException;
 
 @Component
 public class TreasuryApiClient {
 
     private static final Logger log = LoggerFactory.getLogger(TreasuryApiClient.class);
     private static final String RATES_PATH = "/v1/accounting/od/rates_of_exchange";
+    private static final int BULK_PAGE_SIZE = 500;
 
     private final RestClient restClient;
     private final TreasuryProperties treasuryProperties;
@@ -75,7 +77,7 @@ public class TreasuryApiClient {
         } catch (RestClientResponseException e) {
             log.error("[TREASURY API] HTTP {} error for currency={} uri={}", e.getStatusCode().value(),
                     countryCurrencyDesc, uri);
-            throw new InvalidRequestException(
+            throw new ExternalServiceException(
                     "Treasury Fiscal Data API error: HTTP " + e.getStatusCode().value());
         }
     }
@@ -86,46 +88,59 @@ public class TreasuryApiClient {
      *
      * <p>The Treasury API returns ~170 currencies per quarter, and there can be 2–3 quarters in a
      * 6-month window, so a page size of 500 is sufficient to retrieve all rows in a single call.
-     * If the response is unexpectedly paginated (unlikely in practice), only the first page is
-     * returned — the fill-as-you-go path will cover any gaps on the next request.
+     * Paginates with {@code page[number]} until a page returns fewer than {@link #BULK_PAGE_SIZE} rows.
      */
     public List<TreasuryRateRow> fetchAllRatesInWindow(LocalDate windowStart, LocalDate windowEnd) {
         String filter = "effective_date:lte:%s,effective_date:gte:%s"
                 .formatted(windowEnd, windowStart);
 
-        var uri = UriComponentsBuilder.fromUriString(treasuryProperties.getBaseUrl() + RATES_PATH)
-                .queryParam("fields", "country_currency_desc,exchange_rate,record_date,effective_date")
-                .queryParam("filter", filter)
-                .queryParam("sort", "-effective_date")
-                .queryParam("page[size]", 500)
-                .build()
-                .toUri();
+        List<TreasuryRateRow> all = new ArrayList<>();
+        int page = 1;
+        while (true) {
+            var uri = UriComponentsBuilder.fromUriString(treasuryProperties.getBaseUrl() + RATES_PATH)
+                    .queryParam("fields", "country_currency_desc,exchange_rate,record_date,effective_date")
+                    .queryParam("filter", filter)
+                    .queryParam("sort", "-effective_date")
+                    .queryParam("page[size]", BULK_PAGE_SIZE)
+                    .queryParam("page[number]", page)
+                    .build()
+                    .toUri();
 
-        log.info("[TREASURY API][BULK] GET {}", uri);
-        try {
-            TreasuryRatesResponse body = restClient
-                    .get()
-                    .uri(uri)
-                    .retrieve()
-                    .body(TreasuryRatesResponse.class);
+            log.info("[TREASURY API][BULK] GET {} (page {})", uri, page);
+            try {
+                TreasuryRatesResponse body = restClient
+                        .get()
+                        .uri(uri)
+                        .retrieve()
+                        .body(TreasuryRatesResponse.class);
 
-            if (body == null || body.data() == null) {
-                log.warn("[TREASURY API][BULK] Empty response for window {}/{}", windowStart, windowEnd);
-                return List.of();
+                if (body == null || body.data() == null || body.data().isEmpty()) {
+                    if (page == 1) {
+                        log.warn("[TREASURY API][BULK] Empty response for window {}/{}", windowStart, windowEnd);
+                    }
+                    break;
+                }
+
+                all.addAll(body.data());
+                log.info("[TREASURY API][BULK] Page {}: {} rows (total so far: {})",
+                        page, body.data().size(), all.size());
+
+                if (body.data().size() < BULK_PAGE_SIZE) {
+                    break;
+                }
+                page++;
+            } catch (RestClientResponseException e) {
+                log.error("[TREASURY API][BULK] HTTP {} error for window {}/{}: {}",
+                        e.getStatusCode().value(), windowStart, windowEnd, e.getMessage());
+                throw new ExternalServiceException(
+                        "Treasury Fiscal Data API error during bulk load: HTTP " + e.getStatusCode().value());
             }
-            int count = body.data().size();
-            log.info("[TREASURY API][BULK] Response: {} rows for window {}/{}",
-                    count, windowStart, windowEnd);
-            if (count > 0) {
-                log.debug("[TREASURY API][BULK] First row sample: {}", body.data().getFirst());
-            }
-            return body.data();
-        } catch (RestClientResponseException e) {
-            log.error("[TREASURY API][BULK] HTTP {} error for window {}/{}: {}",
-                    e.getStatusCode().value(), windowStart, windowEnd, e.getMessage());
-            throw new InvalidRequestException(
-                    "Treasury Fiscal Data API error during bulk load: HTTP " + e.getStatusCode().value());
         }
+
+        if (!all.isEmpty()) {
+            log.debug("[TREASURY API][BULK] First row sample: {}", all.getFirst());
+        }
+        return all;
     }
 
     /** Encode spaces in descriptor so filter colons stay literal for the API parser. */
@@ -137,12 +152,12 @@ public class TreasuryApiClient {
         try {
             BigDecimal value = new BigDecimal(exchangeRate);
             if (value.signum() <= 0) {
-                throw new InvalidRequestException(
+                throw new ExternalServiceException(
                         "Exchange rate from Treasury API must be positive, got: " + exchangeRate);
             }
             return value;
         } catch (NumberFormatException e) {
-            throw new InvalidRequestException("Invalid exchange_rate value from Treasury API");
+            throw new ExternalServiceException("Invalid exchange_rate value from Treasury API");
         }
     }
 
@@ -150,7 +165,7 @@ public class TreasuryApiClient {
         try {
             return LocalDate.parse(isoDate);
         } catch (DateTimeParseException e) {
-            throw new InvalidRequestException("Invalid date value from Treasury API: " + isoDate);
+            throw new ExternalServiceException("Invalid date value from Treasury API: " + isoDate);
         }
     }
 

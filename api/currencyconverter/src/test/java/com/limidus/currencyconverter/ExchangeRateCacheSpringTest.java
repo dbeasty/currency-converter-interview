@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -49,9 +50,9 @@ class ExchangeRateCacheSpringTest {
         when(exchangeRateRepository.findMostRecentInWindow(eq(currency), eq(purchase), any()))
                 .thenReturn(Optional.of(fromDb));
 
-        Optional<ExchangeRate> out = exchangeRateCache.load(currency, purchase, asOf);
+        ExchangeRate out = exchangeRateCache.load(currency, purchase, asOf);
 
-        assertThat(out).contains(fromDb);
+        assertThat(out).isEqualTo(fromDb);
         verify(treasuryApiClient, never()).fetchBestRateWithinWindow(any(), any(), any());
     }
 
@@ -77,9 +78,9 @@ class ExchangeRateCacheSpringTest {
                 .build();
         when(exchangeRateRepository.save(any(ExchangeRate.class))).thenReturn(saved);
 
-        Optional<ExchangeRate> out = exchangeRateCache.load(currency, purchase, asOf);
+        ExchangeRate out = exchangeRateCache.load(currency, purchase, asOf);
 
-        assertThat(out).isPresent();
+        assertThat(out).isNotNull();
         verify(treasuryApiClient).fetchBestRateWithinWindow(eq(currency), eq(purchase), any());
         verify(exchangeRateRepository).save(any(ExchangeRate.class));
     }
@@ -94,6 +95,22 @@ class ExchangeRateCacheSpringTest {
         when(treasuryApiClient.fetchBestRateWithinWindow(eq(currency), eq(purchase), any()))
                 .thenReturn(Optional.empty());
 
-        assertThat(exchangeRateCache.load(currency, purchase, asOf)).isEmpty();
+        assertThat(exchangeRateCache.load(currency, purchase, asOf)).isNull();
+    }
+
+    @Test
+    void load_emptyResult_isNotCached() {
+        String currency = "CACHE-EMPTY";
+        LocalDate purchase = LocalDate.of(2024, 8, 10);
+        LocalDate asOf = LocalDate.of(2024, 8, 11);
+        when(exchangeRateRepository.findMostRecentInWindow(eq(currency), eq(purchase), any()))
+                .thenReturn(Optional.empty());
+        when(treasuryApiClient.fetchBestRateWithinWindow(eq(currency), eq(purchase), any()))
+                .thenReturn(Optional.empty());
+
+        assertThat(exchangeRateCache.load(currency, purchase, asOf)).isNull();
+        assertThat(exchangeRateCache.load(currency, purchase, asOf)).isNull();
+
+        verify(treasuryApiClient, times(2)).fetchBestRateWithinWindow(eq(currency), eq(purchase), any());
     }
 }

@@ -19,6 +19,8 @@ class GlobalExceptionHandlerTest {
     void handleNotFound() {
         ResponseEntity<ErrorResponse> res = handler.handleNotFound(new NotFoundException("missing"));
         assertThat(res.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(res.getBody().status()).isEqualTo(404);
+        assertThat(res.getBody().error()).isEqualTo("Not Found");
         assertThat(res.getBody().message()).isEqualTo("missing");
     }
 
@@ -27,6 +29,7 @@ class GlobalExceptionHandlerTest {
         ResponseEntity<ErrorResponse> res =
                 handler.handleBadCredentials(new BadCredentialsException("bad login"));
         assertThat(res.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(res.getBody().status()).isEqualTo(401);
         assertThat(res.getBody().message()).isEqualTo("bad login");
     }
 
@@ -35,7 +38,27 @@ class GlobalExceptionHandlerTest {
         ResponseEntity<ErrorResponse> res =
                 handler.handleInvalidRequest(new InvalidRequestException("nope"));
         assertThat(res.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(res.getBody().status()).isEqualTo(400);
         assertThat(res.getBody().message()).isEqualTo("nope");
+    }
+
+    @Test
+    void handleConversionUnavailable() {
+        ResponseEntity<ErrorResponse> res = handler.handleConversionUnavailable(
+                new ConversionUnavailableException("no rate"));
+        assertThat(res.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(res.getBody().status()).isEqualTo(422);
+        assertThat(res.getBody().error()).isEqualTo("Unprocessable Entity");
+        assertThat(res.getBody().message()).isEqualTo("no rate");
+    }
+
+    @Test
+    void handleExternalService() {
+        ResponseEntity<ErrorResponse> res =
+                handler.handleExternalService(new ExternalServiceException("treasury down"));
+        assertThat(res.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+        assertThat(res.getBody().status()).isEqualTo(500);
+        assertThat(res.getBody().message()).isEqualTo("treasury down");
     }
 
     @Test

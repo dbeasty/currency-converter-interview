@@ -178,7 +178,7 @@ docker inspect --format='{{.State.Health.Status}}' currency-converter-interview-
 ### `api`
 
 - Base image: `eclipse-temurin:21-jre-alpine` (+ `wget` for health probes)
-- Copies `build/libs/currencyconverter-0.0.1-SNAPSHOT.jar` → `/app/app.jar`
+- Copies `build/libs/currencyconverter-*.jar` → `/app/app.jar` (version from `build.gradle`, e.g. `1.0.0`)
 - Profile **`release`**: required Vault import; datasource and security from KV
 - H2 console is explicitly disabled (`SPRING_H2_CONSOLE_ENABLED=false`)
 - Liquibase applies all pending changesets against PostgreSQL on startup

@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.limidus.currencyconverter.config.TreasuryProperties;
-import com.limidus.currencyconverter.exception.InvalidRequestException;
+import com.limidus.currencyconverter.exception.ExternalServiceException;
 import java.time.LocalDate;
 import java.util.List;
 import okhttp3.mockwebserver.MockResponse;
@@ -87,13 +87,13 @@ class TreasuryApiClientTest {
     }
 
     @Test
-    void fetchBestRateWithinWindow_httpError_throwsInvalidRequest() {
+    void fetchBestRateWithinWindow_httpError_throwsExternalService() {
         // Use 400 (not 503): Apache HttpClient retries 503 and MockWebServer only serves one response.
         server.enqueue(new MockResponse().setResponseCode(400).setBody("{}"));
 
         assertThatThrownBy(() -> client.fetchBestRateWithinWindow(
                         "Y", LocalDate.of(2024, 1, 1), LocalDate.of(2023, 1, 1)))
-                .isInstanceOf(InvalidRequestException.class)
+                .isInstanceOf(ExternalServiceException.class)
                 .hasMessageContaining("400");
     }
 
@@ -142,31 +142,52 @@ class TreasuryApiClientTest {
     }
 
     @Test
-    void fetchAllRatesInWindow_httpError_throwsInvalidRequest() {
+    void fetchAllRatesInWindow_httpError_throwsExternalService() {
         server.enqueue(new MockResponse().setResponseCode(400).setBody("{}"));
 
         assertThatThrownBy(() -> client.fetchAllRatesInWindow(LocalDate.of(2024, 1, 1), LocalDate.of(2024, 2, 1)))
-                .isInstanceOf(InvalidRequestException.class)
+                .isInstanceOf(ExternalServiceException.class)
                 .hasMessageContaining("bulk load");
+    }
+
+    @Test
+    void fetchAllRatesInWindow_paginatesUntilPartialPage() throws Exception {
+        String row = "{\"country_currency_desc\":\"A\",\"exchange_rate\":\"1\","
+                + "\"record_date\":\"2024-01-01\",\"effective_date\":\"2024-01-01\"}";
+        String fullPage = "{\"data\":[" + row;
+        for (int i = 1; i < 500; i++) {
+            fullPage += "," + row;
+        }
+        fullPage += "]}";
+        server.enqueue(new MockResponse().setBody(fullPage).addHeader("Content-Type", "application/json"));
+        server.enqueue(new MockResponse()
+                .setBody("{\"data\":[" + row + "]}")
+                .addHeader("Content-Type", "application/json"));
+
+        List<TreasuryApiClient.TreasuryRateRow> rows =
+                client.fetchAllRatesInWindow(LocalDate.of(2024, 1, 1), LocalDate.of(2024, 6, 1));
+
+        assertThat(rows).hasSize(501);
+        assertThat(server.getRequestCount()).isEqualTo(2);
     }
 
     @Test
     void parseExchangeRate_invalid_throws() {
         assertThatThrownBy(() -> TreasuryApiClient.parseExchangeRate("not-a-number"))
-                .isInstanceOf(InvalidRequestException.class);
+                .isInstanceOf(ExternalServiceException.class);
     }
 
     @Test
     void parseExchangeRate_zero_throws() {
         assertThatThrownBy(() -> TreasuryApiClient.parseExchangeRate("0"))
-                .isInstanceOf(InvalidRequestException.class)
+                .isInstanceOf(ExternalServiceException.class)
                 .hasMessageContaining("positive");
     }
 
     @Test
     void parseExchangeRate_negative_throws() {
         assertThatThrownBy(() -> TreasuryApiClient.parseExchangeRate("-1.5"))
-                .isInstanceOf(InvalidRequestException.class)
+                .isInstanceOf(ExternalServiceException.class)
                 .hasMessageContaining("positive");
     }
 
@@ -179,6 +200,6 @@ class TreasuryApiClientTest {
     @Test
     void parseDate_invalid_throws() {
         assertThatThrownBy(() -> TreasuryApiClient.parseDate("2024-13-40"))
-                .isInstanceOf(InvalidRequestException.class);
+                .isInstanceOf(ExternalServiceException.class);
     }
 }

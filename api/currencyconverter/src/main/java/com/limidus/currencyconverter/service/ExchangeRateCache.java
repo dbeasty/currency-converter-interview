@@ -56,7 +56,8 @@ public class ExchangeRateCache {
      *   <li>Treasury Fiscal Data API — only on a combined cache + DB miss; result is saved to DB.
      * </ol>
      *
-     * Empty results are never cached so a transient data gap does not get locked in.
+     * {@code null} results (no qualifying rate) are never cached ({@code unless = "#result == null"})
+     * so a transient data gap does not get locked in.
      * When this method body executes it always means a cache miss; a hit short-circuits before entry.
      */
     @Cacheable(
@@ -64,7 +65,7 @@ public class ExchangeRateCache {
             key = "#currency + '-' + #purchaseDate + '-' + #asOfDate",
             unless = "#result == null")
     @Transactional
-    public Optional<ExchangeRate> load(String currency, LocalDate purchaseDate, LocalDate asOfDate) {
+    public ExchangeRate load(String currency, LocalDate purchaseDate, LocalDate asOfDate) {
         String cacheKey = currency + "-" + purchaseDate + "-" + asOfDate;
         log.info("[CACHE MISS] key={} — proceeding to DB lookup", cacheKey);
 
@@ -76,7 +77,7 @@ public class ExchangeRateCache {
             ExchangeRate er = dbResult.get();
             log.info("[DB HIT] currency={} purchaseDate={} effectiveDate={} rate={} id={}",
                     currency, purchaseDate, er.getEffectiveDate(), er.getRate(), er.getId());
-            return dbResult;
+            return er;
         }
 
         // Tier 3: Treasury API
@@ -89,7 +90,7 @@ public class ExchangeRateCache {
         if (row == null) {
             log.warn("[TREASURY API] No rate returned for currency={} purchaseDate={} — cannot convert",
                     currency, purchaseDate);
-            return Optional.empty();
+            return null;
         }
 
         log.info("[TREASURY API] Rate received: currency={} effectiveDate={} recordDate={} rate={}",
@@ -112,7 +113,7 @@ public class ExchangeRateCache {
                 });
         log.info("[CACHE STORE] Caching result for key={} effectiveDate={} rate={} id={}",
                 cacheKey, entity.getEffectiveDate(), entity.getRate(), entity.getId());
-        return Optional.of(entity);
+        return entity;
     }
 
     private Optional<ExchangeRate> queryDb(String currency, LocalDate purchaseDate, LocalDate windowStart) {

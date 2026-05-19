@@ -106,7 +106,7 @@ class TransactionControllerIntegrationTest {
     }
 
     @Test
-    void get_whenTreasuryReturnsNoRow_returns400() throws Exception {
+    void get_whenTreasuryReturnsNoRow_returns422() throws Exception {
         when(treasuryApiClient.fetchBestRateWithinWindow(any(), any(), any())).thenReturn(Optional.empty());
 
         String body = "{\"description\":\"Mug\",\"transactionDate\":\"2024-06-15\",\"purchaseAmountUsd\":5.00}";
@@ -123,7 +123,8 @@ class TransactionControllerIntegrationTest {
         mockMvc.perform(get("/transactions/{id}", id)
                         .header(HttpHeaders.AUTHORIZATION, bearerToken)
                         .param("countryCurrencyDesc", "Unknown-Currency"))
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.status").value(422))
                 .andExpect(jsonPath("$.message").value(CurrencyConversionService.CONVERSION_UNAVAILABLE));
     }
 

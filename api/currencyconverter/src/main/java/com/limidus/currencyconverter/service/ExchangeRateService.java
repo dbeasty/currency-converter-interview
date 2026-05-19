@@ -33,7 +33,8 @@ public class ExchangeRateService {
         LocalDate asOfDate = LocalDate.now(treasuryZone);
         String cacheKey = currency + "-" + purchaseDate + "-" + asOfDate;
         log.debug("[CACHE LOOKUP] Requesting rate for key={}", cacheKey);
-        Optional<ExchangeRate> result = exchangeRateCache.load(currency, purchaseDate, asOfDate);
+        Optional<ExchangeRate> result =
+                Optional.ofNullable(exchangeRateCache.load(currency, purchaseDate, asOfDate));
         if (result.isPresent()) {
             // If the cache served this from memory the ExchangeRateCache body was skipped entirely;
             // we log here to capture both hit and miss paths at the service boundary.

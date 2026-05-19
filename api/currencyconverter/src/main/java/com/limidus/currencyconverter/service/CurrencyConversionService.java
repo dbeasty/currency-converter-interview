@@ -4,6 +4,7 @@ import com.limidus.currencyconverter.domain.ConversionRecord;
 import com.limidus.currencyconverter.domain.ExchangeRate;
 import com.limidus.currencyconverter.domain.Transaction;
 import com.limidus.currencyconverter.dto.ConvertedTransactionResponse;
+import com.limidus.currencyconverter.exception.ConversionUnavailableException;
 import com.limidus.currencyconverter.exception.InvalidRequestException;
 import com.limidus.currencyconverter.repository.ConversionRepository;
 import java.math.BigDecimal;
@@ -43,7 +44,7 @@ public class CurrencyConversionService {
 
         ExchangeRate exchangeRate = exchangeRateService
                 .findMostRecentRate(countryCurrencyDesc, transaction.getTransactionDate())
-                .orElseThrow(() -> new InvalidRequestException(CONVERSION_UNAVAILABLE));
+                .orElseThrow(() -> new ConversionUnavailableException(CONVERSION_UNAVAILABLE));
 
         BigDecimal convertedAmount = transaction.getAmountUsd()
                 .multiply(exchangeRate.getRate())

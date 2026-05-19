@@ -286,7 +286,7 @@ At ~120 users both throughput and latency were still stable (no degradation curv
 
 ### Python API integration tests against a local JVM (`bootRun` or IDE)
 
-1. Start the app (H2 by default), from `api/currencyconverter`:
+1. Start the app (PostgreSQL via profile `local` by default; use `--spring.profiles.active=h2` for in-memory), from `api/currencyconverter`:
 
    ```bash
    ./gradlew bootRun

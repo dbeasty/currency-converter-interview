@@ -104,14 +104,17 @@ traceability (it identifies the fiscal quarter), but it plays no role in filteri
 
 ### What is cached
 
-Each unique `(countryCurrencyDesc, purchaseDate, asOfDate)` triple maps to a single
-`TreasuryRateRow` in an in-process Caffeine/Simple cache named `treasuryRates`.
+Each unique `(countryCurrencyDesc, purchaseDate, asOfDate)` triple maps to a resolved
+`ExchangeRate` in an in-process **Caffeine** cache named `treasuryRates` (see
+`spring.cache.caffeine.spec` in `application.yml`).
 
 `asOfDate` is today's date in **Treasury's timezone** (Eastern Time, see below). It is included in
 the key so the cached rate is automatically invalidated when the calendar day rolls over in ET —
 the same rhythm Treasury uses when publishing new data.
 
-A `null` result (no qualifying rate in the 6-month window) is **not cached** (`unless = "#result == null"`). This prevents a transient data gap from being permanently locked into the cache.
+Empty results (no qualifying rate in the 6-month window) are **not cached**
+(`unless = "#result == null"` on a nullable `ExchangeRate` return). This prevents a transient
+data gap from being permanently locked into the cache.
 
 ### Sequence for a cache miss
 
@@ -122,16 +125,12 @@ GET /transactions/{id}?countryCurrencyDesc=Argentina-Peso
 ExchangeRateService.findMostRecentRate(currency, purchaseDate)
         │  passes asOfDate = LocalDate.now(ET)
         ▼
-TreasuryRateCache.load(currency, purchaseDate, asOfDate)   ← @Cacheable
-        │  cache miss
+ExchangeRateCache.load(currency, purchaseDate, asOfDate)   ← @Cacheable
+        │  cache miss → query exchange_rates table
+        │  still miss → TreasuryApiClient.fetchBestRateWithinWindow(...)
+        │  persist ExchangeRate row → return Optional<ExchangeRate>
         ▼
-TreasuryApiClient.fetchBestRateWithinWindow(currency, purchaseDate, purchaseDate - 6m)
-        │  HTTP GET → Fiscal Data API
-        ▼
-TreasuryRateRow { effectiveDate, exchangeRate, recordDate }
-        │  stored in cache; returned to caller
-        ▼
-CurrencyConversionService  →  upsert ExchangeRate entity  →  save ConversionRecord
+CurrencyConversionService  →  save ConversionRecord  →  200 OK
 ```
 
 ### Why the cache key includes `asOfDate`

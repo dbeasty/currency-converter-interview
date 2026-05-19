@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import com.limidus.currencyconverter.domain.ExchangeRate;
 import com.limidus.currencyconverter.domain.Transaction;
+import com.limidus.currencyconverter.exception.ConversionUnavailableException;
 import com.limidus.currencyconverter.exception.InvalidRequestException;
 import com.limidus.currencyconverter.repository.ConversionRepository;
 import com.limidus.currencyconverter.service.CurrencyConversionService;
@@ -96,7 +97,7 @@ class CurrencyConversionServiceTest {
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> currencyConversionService.getConvertedPurchase(id, "Nowhere-Dollar"))
-                .isInstanceOf(InvalidRequestException.class)
+                .isInstanceOf(ConversionUnavailableException.class)
                 .hasMessage(CurrencyConversionService.CONVERSION_UNAVAILABLE);
     }
 }

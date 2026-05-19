@@ -42,7 +42,7 @@ class ExchangeRateServiceTest {
                 .rate(new BigDecimal("1.1"))
                 .effectiveDate(purchase)
                 .build();
-        when(exchangeRateCache.load(eq("X"), eq(purchase), any(LocalDate.class))).thenReturn(Optional.of(rate));
+        when(exchangeRateCache.load(eq("X"), eq(purchase), any(LocalDate.class))).thenReturn(rate);
 
         assertThat(exchangeRateService.findMostRecentRate("X", purchase)).contains(rate);
         verify(exchangeRateCache).load(eq("X"), eq(purchase), any(LocalDate.class));
@@ -51,7 +51,7 @@ class ExchangeRateServiceTest {
     @Test
     void findMostRecentRate_emptyFromCache() {
         LocalDate purchase = LocalDate.of(2024, 2, 1);
-        when(exchangeRateCache.load(eq("Y"), eq(purchase), any(LocalDate.class))).thenReturn(Optional.empty());
+        when(exchangeRateCache.load(eq("Y"), eq(purchase), any(LocalDate.class))).thenReturn(null);
 
         assertThat(exchangeRateService.findMostRecentRate("Y", purchase)).isEmpty();
     }

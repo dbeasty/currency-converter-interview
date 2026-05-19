@@ -1,6 +1,10 @@
 spring:
   application:
     name: currency-converter
+  cache:
+    type: caffeine
+    caffeine:
+      spec: maximumSize=10000,expireAfterWrite=1d
   profiles:
     # Local dev + optional Vault: see application-local.yml
     default: local
