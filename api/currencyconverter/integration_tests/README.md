@@ -64,9 +64,26 @@ python3 -m integration_tests.cli smoke
 
 Optional flags for `smoke`: `--description`, `--date`, `--amount`, `--currency`.
 
+**Monthly purchase report** (`month` is `MM-YYYY`; aggregates by `transactionDate`, no Treasury calls):
+
+```bash
+python3 -m integration_tests.cli report --month 06-2024
+```
+
+Create a few transactions in that month first (via `create`) if you need non-zero totals.
+
+**Report smoke** (seeds sample March 2019 transactions, then fetches the report; no Treasury):
+
+```bash
+python3 -m integration_tests.cli report-smoke
+```
+
+From the `integration_tests` directory you can also run `python3 cli.py report-smoke` (same module).
+
 **Machine-readable JSON only** (no HTTP banner, no stderr id hint): add `--json-only` to any subcommand.
 
 ## Notes
 
 - `test_get_converted_200` and `smoke` / `convert` call the **real** U.S. Treasury Fiscal Data API. They need network access from the JVM and may fail if Treasury is unreachable.
-- `test_create_transaction_201` and `test_get_transaction_not_found_404` only exercise your app and H2.
+- `test_create_transaction_201`, `test_get_transaction_not_found_404`, and `test_get_monthly_report_*` only exercise your app (no Treasury).
+- `report`, `report-smoke`, and the monthly report unittest cases use month `03-2019` for sample dates to avoid colliding with `2024-06-15` data from other tests.

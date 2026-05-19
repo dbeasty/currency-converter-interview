@@ -6,7 +6,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.limidus.currencyconverter.dto.MonthlyReportResponse;
-import com.limidus.currencyconverter.repository.PurchaseTotals;
 import com.limidus.currencyconverter.repository.TransactionRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -27,9 +26,12 @@ class MonthlyReportServiceTest {
 
     @Test
     void getPurchaseTotals_queriesInclusiveMonthRange() {
-        when(transactionRepository.sumAndCountByTransactionDateRange(
+        when(transactionRepository.countByTransactionDateInRange(
                         eq(LocalDate.of(2024, 6, 1)), eq(LocalDate.of(2024, 7, 1))))
-                .thenReturn(new PurchaseTotals(2, new BigDecimal("75.50")));
+                .thenReturn(2L);
+        when(transactionRepository.sumAmountUsdByTransactionDateInRange(
+                        eq(LocalDate.of(2024, 6, 1)), eq(LocalDate.of(2024, 7, 1))))
+                .thenReturn(new BigDecimal("75.50"));
 
         MonthlyReportResponse response = monthlyReportService.getPurchaseTotals("06-2024");
 
@@ -37,6 +39,8 @@ class MonthlyReportServiceTest {
         assertThat(response.getTransactionCount()).isEqualTo(2);
         assertThat(response.getTotalPurchaseAmountUsd()).isEqualByComparingTo("75.50");
         verify(transactionRepository)
-                .sumAndCountByTransactionDateRange(LocalDate.of(2024, 6, 1), LocalDate.of(2024, 7, 1));
+                .countByTransactionDateInRange(LocalDate.of(2024, 6, 1), LocalDate.of(2024, 7, 1));
+        verify(transactionRepository)
+                .sumAmountUsdByTransactionDateInRange(LocalDate.of(2024, 6, 1), LocalDate.of(2024, 7, 1));
     }
 }

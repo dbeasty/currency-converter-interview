@@ -7,6 +7,8 @@ Start the app with ./gradlew bootRun first.
 Examples:
   python3 -m integration_tests.cli create --description "Coffee" --date 2024-06-15 --amount 50
   python3 -m integration_tests.cli convert --id <uuid> --currency "Canada-Dollar"
+  python3 -m integration_tests.cli report --month 06-2024
+  python3 -m integration_tests.cli report-smoke
   python3 -m integration_tests.cli smoke
 """
 
@@ -77,6 +79,66 @@ def _cmd_smoke(args: argparse.Namespace) -> int:
     return 0 if code2 == 200 else 1
 
 
+def _cmd_report(args: argparse.Namespace) -> int:
+    code, data = request_json(
+        "GET",
+        "/monthly-report",
+        query={"month": args.month},
+    )
+    _print_body(code, data, json_only=args.json_only)
+    return 0 if code == 200 else 1
+
+
+def _seed_monthly_report_fixtures() -> int:
+    """Create sample transactions for report-smoke (03-2019 + one in 04-2019)."""
+    for desc, tx_date, amount in (
+        ("Report smoke A", "2019-03-10", 50.0),
+        ("Report smoke B", "2019-03-20", 25.5),
+        ("Report smoke other month", "2019-04-01", 100.0),
+    ):
+        code, data = request_json(
+            "POST",
+            "/transactions",
+            body={
+                "description": desc,
+                "transactionDate": tx_date,
+                "purchaseAmountUsd": amount,
+            },
+        )
+        if code != 201:
+            print(f"Failed to seed transaction {desc}: HTTP {code}", file=sys.stderr)
+            print(json.dumps(data, indent=2, default=str), file=sys.stderr)
+            return 1
+    return 0
+
+
+def _cmd_report_smoke(args: argparse.Namespace) -> int:
+    if _seed_monthly_report_fixtures() != 0:
+        return 1
+
+    code, data = request_json(
+        "GET",
+        "/monthly-report",
+        query={"month": args.month},
+    )
+    if not args.json_only:
+        print("=== GET /monthly-report ===")
+    _print_body(code, data, json_only=args.json_only)
+    if code != 200 or not isinstance(data, dict):
+        return 1
+    ok = (
+        data.get("month") == args.month
+        and data.get("transactionCount") == 2
+        and data.get("totalPurchaseAmountUsd") == 75.5
+    )
+    if not ok and not args.json_only:
+        print(
+            f"\nUnexpected report (expected month={args.month}, count=2, total=75.5): {data}",
+            file=sys.stderr,
+        )
+    return 0 if ok else 1
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Manual HTTP client for currency converter API")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -109,6 +171,29 @@ def main() -> int:
     p_smoke.add_argument("--currency", default="Canada-Dollar")
     p_smoke.add_argument("--json-only", action="store_true")
     p_smoke.set_defaults(func=_cmd_smoke)
+
+    p_report = sub.add_parser("report", help="GET /monthly-report for purchase totals (month=MM-YYYY)")
+    p_report.add_argument(
+        "--month",
+        required=True,
+        metavar="MM-YYYY",
+        help="Calendar month to aggregate by transactionDate (e.g. 06-2024)",
+    )
+    p_report.add_argument("--json-only", action="store_true")
+    p_report.set_defaults(func=_cmd_report)
+
+    p_report_smoke = sub.add_parser(
+        "report-smoke",
+        help="Seed 03-2019 transactions then GET /monthly-report (no Treasury)",
+    )
+    p_report_smoke.add_argument(
+        "--month",
+        default="03-2019",
+        metavar="MM-YYYY",
+        help="Month to query after seeding sample data (default 03-2019)",
+    )
+    p_report_smoke.add_argument("--json-only", action="store_true")
+    p_report_smoke.set_defaults(func=_cmd_report_smoke)
 
     args = parser.parse_args()
     return args.func(args)

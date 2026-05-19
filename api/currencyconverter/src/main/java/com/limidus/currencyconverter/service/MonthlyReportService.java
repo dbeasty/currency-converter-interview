@@ -2,8 +2,9 @@ package com.limidus.currencyconverter.service;
 
 import com.limidus.currencyconverter.domain.MonthYear;
 import com.limidus.currencyconverter.dto.MonthlyReportResponse;
-import com.limidus.currencyconverter.repository.PurchaseTotals;
 import com.limidus.currencyconverter.repository.TransactionRepository;
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,13 +22,19 @@ public class MonthlyReportService {
         MonthYear monthYear = MonthYear.parse(monthParam);
         monthYear.validateNotInFuture();
 
-        PurchaseTotals totals = transactionRepository.sumAndCountByTransactionDateRange(
-                monthYear.rangeStart(), monthYear.rangeEndExclusive());
+        LocalDate start = monthYear.rangeStart();
+        LocalDate endExclusive = monthYear.rangeEndExclusive();
+
+        long transactionCount = transactionRepository.countByTransactionDateInRange(start, endExclusive);
+        BigDecimal totalUsd = transactionRepository.sumAmountUsdByTransactionDateInRange(start, endExclusive);
+        if (totalUsd == null) {
+            totalUsd = BigDecimal.ZERO;
+        }
 
         return MonthlyReportResponse.builder()
                 .month(monthYear.formatted())
-                .transactionCount(totals.transactionCount())
-                .totalPurchaseAmountUsd(totals.totalPurchaseAmountUsd())
+                .transactionCount(transactionCount)
+                .totalPurchaseAmountUsd(totalUsd)
                 .build();
     }
 }
