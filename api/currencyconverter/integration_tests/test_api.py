@@ -12,18 +12,21 @@ from datetime import date
 
 try:
     from .http_client import request_json
+    from .recent_dates import last_month_mid_date, monthly_report_fixture_bundle
 except ImportError:
     from http_client import request_json
+    from recent_dates import last_month_mid_date, monthly_report_fixture_bundle
 
 
 class TestTransactionApi(unittest.TestCase):
     def test_create_transaction_201(self) -> None:
+        tx_date = last_month_mid_date()
         code, data = request_json(
             "POST",
             "/transactions",
             body={
                 "description": "Python integration test",
-                "transactionDate": "2024-06-15",
+                "transactionDate": tx_date,
                 "purchaseAmountUsd": 42.5,
             },
         )
@@ -32,16 +35,17 @@ class TestTransactionApi(unittest.TestCase):
         assert isinstance(data, dict)
         self.assertIn("id", data)
         self.assertEqual(data.get("description"), "Python integration test")
-        self.assertEqual(data.get("transactionDate"), "2024-06-15")
+        self.assertEqual(data.get("transactionDate"), tx_date)
         self.assertEqual(data.get("purchaseAmountUsd"), 42.5)
 
     def test_get_converted_200(self) -> None:
+        tx_date = last_month_mid_date()
         code, created = request_json(
             "POST",
             "/transactions",
             body={
                 "description": "Convert me",
-                "transactionDate": "2024-06-15",
+                "transactionDate": tx_date,
                 "purchaseAmountUsd": 100.0,
             },
         )
@@ -82,10 +86,12 @@ class TestTransactionApi(unittest.TestCase):
         self.assertIn("message", data)
 
     def test_get_monthly_report_200(self) -> None:
+        bundle = monthly_report_fixture_bundle()
+        report_month = bundle["report_month_mm_yyyy"]
         for desc, tx_date, amount in (
-            ("Mar A", "2019-03-10", 50.0),
-            ("Mar B", "2019-03-20", 25.5),
-            ("Apr only", "2019-04-01", 100.0),
+            ("Report month A", bundle["tx_a"], 50.0),
+            ("Report month B", bundle["tx_b"], 25.5),
+            ("Following month only", bundle["tx_other_month"], 100.0),
         ):
             code, _ = request_json(
                 "POST",
@@ -101,12 +107,12 @@ class TestTransactionApi(unittest.TestCase):
         code, report = request_json(
             "GET",
             "/monthly-report",
-            query={"month": "03-2019"},
+            query={"month": report_month},
         )
         self.assertEqual(code, 200, msg=str(report))
         self.assertIsInstance(report, dict)
         assert isinstance(report, dict)
-        self.assertEqual(report.get("month"), "03-2019")
+        self.assertEqual(report.get("month"), report_month)
         self.assertEqual(report.get("transactionCount"), 2)
         self.assertEqual(report.get("totalPurchaseAmountUsd"), 75.5)
 

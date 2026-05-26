@@ -11,9 +11,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.limidus.currencyconverter.client.TreasuryApiClient;
 import com.limidus.currencyconverter.client.TreasuryApiClient.TreasuryRateRow;
 import com.limidus.currencyconverter.service.CurrencyConversionService;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
+import java.time.ZoneId;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Matcher;
@@ -25,6 +28,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -39,6 +45,9 @@ class TransactionControllerIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private Clock businessClock;
 
     @MockitoBean
     private TreasuryApiClient treasuryApiClient;
@@ -166,7 +175,7 @@ class TransactionControllerIntegrationTest {
 
     @Test
     void post_futureDate_returns400() throws Exception {
-        String tomorrow = LocalDate.now().plusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE);
+        String tomorrow = LocalDate.now(businessClock).plusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE);
         String body = "{\"description\":\"Desk\",\"transactionDate\":\""
                 + tomorrow
                 + "\",\"purchaseAmountUsd\":10.00}";
@@ -240,7 +249,7 @@ class TransactionControllerIntegrationTest {
 
     @Test
     void getMonthlyReport_futureMonth_returns400() throws Exception {
-        YearMonth future = YearMonth.now().plusMonths(1);
+        YearMonth future = YearMonth.now(businessClock).plusMonths(1);
         String month = "%02d-%04d".formatted(future.getMonthValue(), future.getYear());
 
         mockMvc.perform(get("/monthly-report")
@@ -290,5 +299,14 @@ class TransactionControllerIntegrationTest {
                         .param("countryCurrencyDesc", ""))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").exists());
+    }
+
+    @TestConfiguration
+    static class FixedBusinessClockConfig {
+        @Bean
+        @Primary
+        Clock businessClock() {
+            return Clock.fixed(Instant.parse("2024-06-15T12:00:00Z"), ZoneId.of("America/New_York"));
+        }
     }
 }

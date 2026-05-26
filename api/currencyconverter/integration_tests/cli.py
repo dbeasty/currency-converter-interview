@@ -5,9 +5,9 @@ Uses integration_tests.http_client. Set INTEGRATION_BASE_URL (default http://loc
 Start the app with ./gradlew bootRun first.
 
 Examples:
-  python3 -m integration_tests.cli create --description "Coffee" --date 2024-06-15 --amount 50
+  python3 -m integration_tests.cli create --description "Coffee" --date YYYY-MM-DD --amount 50
   python3 -m integration_tests.cli convert --id <uuid> --currency "Canada-Dollar"
-  python3 -m integration_tests.cli report --month 06-2024
+  python3 -m integration_tests.cli report --month MM-YYYY
   python3 -m integration_tests.cli report-smoke
   python3 -m integration_tests.cli smoke
 """
@@ -20,8 +20,18 @@ import sys
 
 try:
     from integration_tests.http_client import request_json
+    from integration_tests.recent_dates import (
+        last_month_mid_date,
+        monthly_report_fixture_bundle,
+        transactions_for_report_month,
+    )
 except ImportError:
     from http_client import request_json
+    from recent_dates import (
+        last_month_mid_date,
+        monthly_report_fixture_bundle,
+        transactions_for_report_month,
+    )
 
 
 def _print_body(code: int, data: object, *, json_only: bool) -> None:
@@ -89,12 +99,17 @@ def _cmd_report(args: argparse.Namespace) -> int:
     return 0 if code == 200 else 1
 
 
-def _seed_monthly_report_fixtures() -> int:
-    """Create sample transactions for report-smoke (03-2019 + one in 04-2019)."""
+def _seed_monthly_report_fixtures(report_month_mm_yyyy: str) -> int:
+    """Create two txs in ``report_month_mm_yyyy`` and one in the following month."""
+    triple = transactions_for_report_month(report_month_mm_yyyy)
+    if triple is None:
+        print(f"Invalid month (expected MM-YYYY): {report_month_mm_yyyy!r}", file=sys.stderr)
+        return 1
+    tx_a, tx_b, tx_other = triple
     for desc, tx_date, amount in (
-        ("Report smoke A", "2019-03-10", 50.0),
-        ("Report smoke B", "2019-03-20", 25.5),
-        ("Report smoke other month", "2019-04-01", 100.0),
+        ("Report smoke A", tx_a, 50.0),
+        ("Report smoke B", tx_b, 25.5),
+        ("Report smoke other month", tx_other, 100.0),
     ):
         code, data = request_json(
             "POST",
@@ -113,7 +128,7 @@ def _seed_monthly_report_fixtures() -> int:
 
 
 def _cmd_report_smoke(args: argparse.Namespace) -> int:
-    if _seed_monthly_report_fixtures() != 0:
+    if _seed_monthly_report_fixtures(args.month) != 0:
         return 1
 
     code, data = request_json(
@@ -166,7 +181,12 @@ def main() -> int:
 
     p_smoke = sub.add_parser("smoke", help="Create a transaction then convert (defaults for quick manual check)")
     p_smoke.add_argument("--description", default="CLI smoke")
-    p_smoke.add_argument("--date", default="2024-06-15", metavar="YYYY-MM-DD")
+    p_smoke.add_argument(
+        "--date",
+        default=last_month_mid_date(),
+        metavar="YYYY-MM-DD",
+        help="transactionDate (default: 15th of previous calendar month)",
+    )
     p_smoke.add_argument("--amount", default=100.0, type=float)
     p_smoke.add_argument("--currency", default="Canada-Dollar")
     p_smoke.add_argument("--json-only", action="store_true")
@@ -177,20 +197,20 @@ def main() -> int:
         "--month",
         required=True,
         metavar="MM-YYYY",
-        help="Calendar month to aggregate by transactionDate (e.g. 06-2024)",
+        help="Calendar month to aggregate by transactionDate (MM-YYYY)",
     )
     p_report.add_argument("--json-only", action="store_true")
     p_report.set_defaults(func=_cmd_report)
 
     p_report_smoke = sub.add_parser(
         "report-smoke",
-        help="Seed 03-2019 transactions then GET /monthly-report (no Treasury)",
+        help="Seed last-month report fixtures then GET /monthly-report (no Treasury)",
     )
     p_report_smoke.add_argument(
         "--month",
-        default="03-2019",
+        default=monthly_report_fixture_bundle()["report_month_mm_yyyy"],
         metavar="MM-YYYY",
-        help="Month to query after seeding sample data (default 03-2019)",
+        help="Month to query after seeding (default: previous calendar month)",
     )
     p_report_smoke.add_argument("--json-only", action="store_true")
     p_report_smoke.set_defaults(func=_cmd_report_smoke)

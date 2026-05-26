@@ -156,6 +156,17 @@ cache key. This means:
 - Once ET rolls over to a new day, the cache key changes and a fresh API call is made to pick up
   any newly published rates.
 
+### Business "today" (Clock-backed)
+
+In addition to Treasury caching, the application treats **"today"** and **"current month"** for
+request validation as a business concept aligned to `app.treasury.timezone`:
+
+- `@PastOrPresent` validation on `CreateTransactionRequest.transactionDate` uses the Spring-managed
+  `Clock` bean, so "future purchases" are rejected relative to Treasury's business day rather than
+  the server's local timezone.
+- Monthly report requests are rejected as "in the future" relative to `YearMonth.now(clock)`, so a
+  server running in PST/UTC does not change the boundary behavior at month rollover.
+
 ### Our internal timestamps (UTC / `Instant`)
 
 All internally generated audit timestamps — `Transaction.createdAt`,

@@ -30,6 +30,11 @@ Stores the raw purchase record in USD as submitted by the client. This is the so
 | `amount_usd` | `DECIMAL(19,2)` | NO | Purchase amount in US dollars, rounded to 2 d.p. |
 | `created_at` | `TIMESTAMP` | YES | Set to `CURRENT_TIMESTAMP` on insert; UTC |
 
+**Note on "must not be in the future":** The "today" boundary used to validate `transaction_date`
+is defined by the application's business timezone (`app.treasury.timezone`, ET by default) via a
+Spring `Clock` bean. This prevents servers running in other timezones (e.g. PST) from changing
+edge-case validation behavior near midnight.
+
 ---
 
 ### `exchange_rates`
@@ -88,6 +93,11 @@ An immutable audit log. Every time a `GET /transactions/{id}` call successfully 
 | Exchange rates | `DECIMAL(19,6)` | Six decimal places matches Treasury API precision |
 | Audit timestamps | `TIMESTAMP` (stored as UTC `Instant` in Java) | Unambiguous; no daylight-saving edge cases |
 | Calendar dates | `DATE` (stored as `LocalDate` in Java) | Date-only semantics; timezone-free by design |
+
+**Rule of thumb:** Use `LocalDate` for business/effective dates (purchase date, Treasury
+`effective_date`). Use `Instant` for event/audit timestamps (row creation time, conversion time,
+token issue/expiry). When comparing against "today" or "current month", use the Spring-provided
+`Clock` (business timezone) rather than the JVM default timezone.
 
 ---
 

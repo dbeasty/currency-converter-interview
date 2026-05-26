@@ -38,6 +38,10 @@ public final class MonthYear {
         return "%02d-%04d".formatted(yearMonth.getMonthValue(), yearMonth.getYear());
     }
 
+    public YearMonth yearMonth() {
+        return yearMonth;
+    }
+
     public LocalDate rangeStart() {
         return yearMonth.atDay(1);
     }

@@ -8,10 +8,12 @@ import static org.mockito.Mockito.when;
 import com.limidus.currencyconverter.dto.MonthlyReportResponse;
 import com.limidus.currencyconverter.repository.TransactionRepository;
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -21,11 +23,11 @@ class MonthlyReportServiceTest {
     @Mock
     private TransactionRepository transactionRepository;
 
-    @InjectMocks
-    private MonthlyReportService monthlyReportService;
-
     @Test
     void getPurchaseTotals_queriesInclusiveMonthRange() {
+        Clock clock = Clock.fixed(Instant.parse("2024-06-15T12:00:00Z"), ZoneId.of("America/New_York"));
+        MonthlyReportService monthlyReportService = new MonthlyReportService(transactionRepository, clock);
+
         when(transactionRepository.countByTransactionDateInRange(
                         eq(LocalDate.of(2024, 6, 1)), eq(LocalDate.of(2024, 7, 1))))
                 .thenReturn(2L);

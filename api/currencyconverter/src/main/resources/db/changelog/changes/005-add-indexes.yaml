@@ -1,0 +1,13 @@
+databaseChangeLog:
+    - changeSet:
+        id: 005-add-indexes
+        author: you
+  
+        changes:
+          - createIndex:
+              tableName: transactions
+              indexName: idx_transactions_transaction_date
+              columns:
+                - column:
+                    name: transaction_date
+  

@@ -40,14 +40,16 @@ From `api/currencyconverter`, with the app running:
 
 **Create a transaction**
 
+Use a recent `transactionDate` (ISO `YYYY-MM-DD`). Example:
+
 ```bash
-python3 -m integration_tests.cli create --description "Coffee" --date 2024-06-15 --amount 50
+python3 -m integration_tests.cli create --description "Coffee" --date 2026-04-15 --amount 50
 ```
 
 Or:
 
 ```bash
-python3 integration_tests/cli.py create --description "Coffee" --date 2024-06-15 --amount 50
+python3 integration_tests/cli.py create --description "Coffee" --date 2026-04-15 --amount 50
 ```
 
 Copy the returned `id`, then **convert**:
@@ -56,7 +58,7 @@ Copy the returned `id`, then **convert**:
 python3 -m integration_tests.cli convert --id YOUR-UUID-HERE --currency "Canada-Dollar"
 ```
 
-**One-shot smoke** (default description/date/amount, then convert to Canada-Dollar; hits the real Treasury API):
+**One-shot smoke** (default description/amount, **default date = 15th of the previous calendar month**, then convert to Canada-Dollar; hits the real Treasury API):
 
 ```bash
 python3 -m integration_tests.cli smoke
@@ -67,12 +69,12 @@ Optional flags for `smoke`: `--description`, `--date`, `--amount`, `--currency`.
 **Monthly purchase report** (`month` is `MM-YYYY`; aggregates by `transactionDate`, no Treasury calls):
 
 ```bash
-python3 -m integration_tests.cli report --month 06-2024
+python3 -m integration_tests.cli report --month 04-2026
 ```
 
 Create a few transactions in that month first (via `create`) if you need non-zero totals.
 
-**Report smoke** (seeds sample March 2019 transactions, then fetches the report; no Treasury):
+**Report smoke** (seeds two transactions in the **previous calendar month** and one in the month after, then fetches that report month; no Treasury):
 
 ```bash
 python3 -m integration_tests.cli report-smoke
@@ -86,4 +88,5 @@ From the `integration_tests` directory you can also run `python3 cli.py report-s
 
 - `test_get_converted_200` and `smoke` / `convert` call the **real** U.S. Treasury Fiscal Data API. They need network access from the JVM and may fail if Treasury is unreachable.
 - `test_create_transaction_201`, `test_get_transaction_not_found_404`, and `test_get_monthly_report_*` only exercise your app (no Treasury).
-- `report`, `report-smoke`, and the monthly report unittest cases use month `03-2019` for sample dates to avoid colliding with `2024-06-15` data from other tests.
+- `test_get_monthly_report_invalid_format_400` uses month `2024-06` (wrong shape: `YYYY-MM`) to assert validation.
+- Automated tests and CLI defaults derive sample `transactionDate` values from [`recent_dates.py`](recent_dates.py) (previous calendar month) so fixtures stay current without editing years by hand.
