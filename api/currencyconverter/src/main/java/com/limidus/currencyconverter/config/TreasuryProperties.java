@@ -36,6 +36,20 @@ public class TreasuryProperties {
      */
     private String bulkLoadCron = "0 30 9 * * *";
 
+    /**
+     * When true, the in-process Caffeine cache ({@code treasuryRates}) is bypassed for exchange-rate
+     * lookups: every call runs the full lookup body (DB tier unless also disabled, then Treasury).
+     * Intended for local debugging and freshness validation; do not enable in production under load.
+     */
+    private boolean inProcessCacheDisabled = false;
+
+    /**
+     * When true, the database read tier is skipped for exchange-rate lookups; the Treasury API is
+     * called every time (subject to the 6-month window). Rows returned from Treasury are still
+     * persisted. Intended for debugging stale DB hits; do not enable in production under load.
+     */
+    private boolean dbLookupDisabled = false;
+
     public String getBaseUrl() {
         return baseUrl;
     }
@@ -66,5 +80,21 @@ public class TreasuryProperties {
 
     public void setBulkLoadCron(String bulkLoadCron) {
         this.bulkLoadCron = bulkLoadCron;
+    }
+
+    public boolean isInProcessCacheDisabled() {
+        return inProcessCacheDisabled;
+    }
+
+    public void setInProcessCacheDisabled(boolean inProcessCacheDisabled) {
+        this.inProcessCacheDisabled = inProcessCacheDisabled;
+    }
+
+    public boolean isDbLookupDisabled() {
+        return dbLookupDisabled;
+    }
+
+    public void setDbLookupDisabled(boolean dbLookupDisabled) {
+        this.dbLookupDisabled = dbLookupDisabled;
     }
 }

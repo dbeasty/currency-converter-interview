@@ -190,3 +190,9 @@ calendar date depending on where the server runs.
 |---|---|---|
 | `app.treasury.base-url` | `https://api.fiscaldata.treasury.gov/services/api/fiscal_service` | Base URL for the Fiscal Data API |
 | `app.treasury.timezone` | `America/New_York` | IANA timezone used to align cache key dates with Treasury's publication calendar |
+| `app.treasury.bulk-load-enabled` | `false` | Preload all rates in the rolling 6-month window on startup and on `bulk-load-cron` |
+| `app.treasury.bulk-load-cron` | `0 30 9 * * *` | Cron (in `app.treasury.timezone`) for bulk replenishment when bulk load is enabled |
+| `app.treasury.in-process-cache-disabled` | `false` | When `true`, bypasses the Caffeine `treasuryRates` cache so every lookup runs the full method body (for local debugging; not for production load) |
+| `app.treasury.db-lookup-disabled` | `false` | When `true`, skips the database read tier and calls the Treasury API every time; successful responses are still persisted to `exchange_rates` |
+
+When **`in-process-cache-disabled`** and **`db-lookup-disabled`** are both `true`, every conversion lookup hits the Treasury API (subject to the usual 6-month `effective_date` window). **`bulk-load-enabled`** remains independent: the bulk loader still warms the DB, but lookups ignore stored rows while `db-lookup-disabled` is `true`.

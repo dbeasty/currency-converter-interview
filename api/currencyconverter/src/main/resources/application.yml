@@ -47,3 +47,7 @@ app:
     # bulk loader refreshes the DB. Default: once daily at 09:30 ET.
     # Use "0 30 9,15 * * *" to also catch afternoon mid-quarter amendments.
     bulk-load-cron: "0 30 9 * * *"
+    # Dev/debug: bypass in-process Caffeine cache for exchange-rate lookups
+    in-process-cache-disabled: false
+    # Dev/debug: skip DB read tier; always call Treasury API for lookups (still persists rows)
+    db-lookup-disabled: false

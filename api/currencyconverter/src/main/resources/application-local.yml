@@ -29,6 +29,12 @@ spring:
         default-context: application
       fail-fast: false
 
+# Dev/debug: force every conversion lookup to call Treasury (bypass Caffeine + DB read tier).
+# app:
+#   treasury:
+#     in-process-cache-disabled: true
+#     db-lookup-disabled: true
+
 app:
   security:
     jwt-secret: "change-me-in-production-must-be-at-least-32-chars!!"

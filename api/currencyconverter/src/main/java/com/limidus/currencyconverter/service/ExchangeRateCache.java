@@ -2,6 +2,7 @@ package com.limidus.currencyconverter.service;
 
 import com.limidus.currencyconverter.client.TreasuryApiClient;
 import com.limidus.currencyconverter.client.TreasuryApiClient.TreasuryRateRow;
+import com.limidus.currencyconverter.config.TreasuryProperties;
 import com.limidus.currencyconverter.domain.ExchangeRate;
 import com.limidus.currencyconverter.repository.ExchangeRateRepository;
 import java.math.BigDecimal;
@@ -27,6 +28,15 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>Cache key: {@code currency + purchaseDate + asOfDate (today in Treasury's ET timezone)}.
  * Including today's date causes a daily cache miss that picks up newly published rates without any
  * manual eviction.
+ *
+ * <p>Debug flags on {@link TreasuryProperties}:
+ * <ul>
+ *   <li>{@code app.treasury.in-process-cache-disabled=true} — bypasses the Caffeine tier; every
+ *       call runs the method body.
+ *   <li>{@code app.treasury.db-lookup-disabled=true} — skips the DB read tier and calls Treasury
+ *       each time (rows are still persisted after a successful API response).
+ * </ul>
+ * When both flags are true, every lookup hits the Treasury API (subject to the 6-month window).
  */
 @Component
 public class ExchangeRateCache {
@@ -38,12 +48,20 @@ public class ExchangeRateCache {
 
     private final TreasuryApiClient treasuryApiClient;
     private final ExchangeRateRepository exchangeRateRepository;
+    private final TreasuryProperties treasuryProperties;
 
     public ExchangeRateCache(
             TreasuryApiClient treasuryApiClient,
-            ExchangeRateRepository exchangeRateRepository) {
+            ExchangeRateRepository exchangeRateRepository,
+            TreasuryProperties treasuryProperties) {
         this.treasuryApiClient = treasuryApiClient;
         this.exchangeRateRepository = exchangeRateRepository;
+        this.treasuryProperties = treasuryProperties;
+    }
+
+    /** Exposed for {@code @Cacheable} SpEL; do not remove. */
+    public TreasuryProperties getTreasuryProperties() {
+        return treasuryProperties;
     }
 
     /**
@@ -51,9 +69,12 @@ public class ExchangeRateCache {
      * checking tiers in order:
      *
      * <ol>
-     *   <li>In-process cache (this method's {@code @Cacheable}) — zero I/O on a hit.
-     *   <li>Database — populated by prior conversions and the optional bulk loader.
-     *   <li>Treasury Fiscal Data API — only on a combined cache + DB miss; result is saved to DB.
+     *   <li>In-process cache (this method's {@code @Cacheable}) — zero I/O on a hit, unless
+     *       {@code app.treasury.in-process-cache-disabled=true}.
+     *   <li>Database — populated by prior conversions and the optional bulk loader, unless
+     *       {@code app.treasury.db-lookup-disabled=true}.
+     *   <li>Treasury Fiscal Data API — on cache + DB miss (or immediately when DB tier is skipped);
+     *       result is saved to DB.
      * </ol>
      *
      * {@code null} results (no qualifying rate) are never cached ({@code unless = "#result == null"})
@@ -63,7 +84,8 @@ public class ExchangeRateCache {
     @Cacheable(
             value = "treasuryRates",
             key = "#currency + '-' + #purchaseDate + '-' + #asOfDate",
-            unless = "#result == null")
+            unless = "#result == null",
+            condition = "!#root.target.getTreasuryProperties().isInProcessCacheDisabled()")
     @Transactional
     public ExchangeRate load(String currency, LocalDate purchaseDate, LocalDate asOfDate) {
         String cacheKey = currency + "-" + purchaseDate + "-" + asOfDate;
@@ -72,12 +94,17 @@ public class ExchangeRateCache {
         LocalDate windowStart = purchaseDate.minusMonths(6);
 
         // Tier 2: DB
-        Optional<ExchangeRate> dbResult = queryDb(currency, purchaseDate, windowStart);
-        if (dbResult.isPresent()) {
-            ExchangeRate er = dbResult.get();
-            log.info("[DB HIT] currency={} purchaseDate={} effectiveDate={} rate={} id={}",
-                    currency, purchaseDate, er.getEffectiveDate(), er.getRate(), er.getId());
-            return er;
+        if (!treasuryProperties.isDbLookupDisabled()) {
+            Optional<ExchangeRate> dbResult = queryDb(currency, purchaseDate, windowStart);
+            if (dbResult.isPresent()) {
+                ExchangeRate er = dbResult.get();
+                log.info("[DB HIT] currency={} purchaseDate={} effectiveDate={} rate={} id={}",
+                        currency, purchaseDate, er.getEffectiveDate(), er.getRate(), er.getId());
+                return er;
+            }
+        } else {
+            log.info("[DB SKIPPED] db-lookup-disabled=true currency={} purchaseDate={}",
+                    currency, purchaseDate);
         }
 
         // Tier 3: Treasury API
